@@ -1,0 +1,44 @@
+# Node modules
+node_modules
+npm-debug.log*
+yarn-error.log*
+
+# Next.js build output
+.next
+out
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Logs
+logs
+*.log
+*.log.*
+
+# Git & VCS
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+
+# Cache
+.cache
+.next-cache
+pnpm-lock.yaml
+bun.lockb
+
+# Local development files
+*.db
+coverage
