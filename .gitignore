@@ -2,6 +2,8 @@
 .env
 .env.*
 
+.next
+
 # build 결과물
 build/
 dist/
