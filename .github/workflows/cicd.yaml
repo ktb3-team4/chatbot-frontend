@@ -5,12 +5,12 @@ on:
     branches:
       - main
       - develop
-      - env
+      - feat/env
   pull_request:
     branches:
       - main
       - develop
-      - env
+      - feat/env
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/front
