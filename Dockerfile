@@ -2,8 +2,16 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+# 빌드 아규먼트 선언
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SOCKET_URL
+
+# 환경 변수로 설정 (빌드 시 사용됨)
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
+
 # 패키지 파일 복사
-COPY package.json ./
+COPY package*.json ./
 
 # 의존성 설치 (빌드에 필요한 devDependencies 포함)
 RUN npm i
