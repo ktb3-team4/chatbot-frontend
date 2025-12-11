@@ -39,6 +39,20 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        server:
+          - host: "3.36.57.151" 
+            name: "front"
+          - host: "3.36.112.194"
+            name: "front"
+          - host: "13.124.239.162"
+            name: "front"
+          - host: "3.38.247.224"
+            name: "front"  
+          - host: "43.201.37.211"
+            name: "front"
+      fail-fast: false  # 한 서버 실패해도 다른 서버는 계속 배포
     steps:
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -48,12 +62,11 @@ jobs:
       - name: Add known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ matrix.server.host }} >> ~/.ssh/known_hosts
 
-
-      - name: Deploy to EC2
+      - name: Deploy to EC2 (${{ matrix.server.name }})
         run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash -s' <<EOF
+          ssh ${{ secrets.SERVER_USER }}@${{ matrix.server.host }} 'bash -s' <<EOF
           set -e
 
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
@@ -76,5 +89,5 @@ jobs:
           echo ">>> docker compose up -d"
           docker compose up -d
 
-          echo ">>> Deployed!"
+          echo ">>> Deployed to ${{ matrix.server.name }}!"
           EOF
