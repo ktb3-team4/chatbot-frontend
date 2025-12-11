@@ -30,6 +30,7 @@ export const useAutoScroll = (
   const previousScrollTopRef = useRef(0);
   const isRestoringRef = useRef(false);
   const throttleTimeoutRef = useRef(null);
+  const lastScrollTopRef = useRef(0);
 
   /**
    * 스크롤이 하단 근처에 있는지 확인
@@ -76,11 +77,18 @@ export const useAutoScroll = (
       // 자동 스크롤 중이면 무시
       if (isAutoScrollingRef.current) return;
 
+      const currentTop = container.scrollTop;
+      if (Math.abs(currentTop - lastScrollTopRef.current) < 1) {
+        return;
+      }
+
+      lastScrollTopRef.current = currentTop;
+
       if (!throttleTimeoutRef.current) {
-        throttleTimeoutRef.current = setTimeout(() => {
+        throttleTimeoutRef.current = requestAnimationFrame(() => {
           isNearBottomRef.current = checkIsNearBottom();
           throttleTimeoutRef.current = null;
-        }, 200);
+        });
       }
     };
 
@@ -90,7 +98,7 @@ export const useAutoScroll = (
       container.removeEventListener("scroll", handleScroll);
 
       if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
+        cancelAnimationFrame(throttleTimeoutRef.current);
         throttleTimeoutRef.current = null;
       }
 
