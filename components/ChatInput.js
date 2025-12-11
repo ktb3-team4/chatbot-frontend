@@ -34,7 +34,7 @@ const ChatInput = forwardRef(
       setShowMentionList = () => {},
       setMentionFilter = () => {},
       setMentionIndex = () => {},
-      room = null, // room prop 추가
+      room = null,
     },
     ref
   ) => {
@@ -45,11 +45,11 @@ const ChatInput = forwardRef(
     const messageInputRef = ref || internalInputRef;
     const filesRef = useRef([]);
     const [files, setFiles] = useState([]);
-    const uploading = false;
-    const uploadProgress = 0;
+    // [수정] 로컬 uploading 상태 제거 (props로 전달받은 externalUploading 사용)
     const [uploadError, setUploadError] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
 
+    // ... (handleFileValidationAndPreview, handleFileRemove, handleFileDrop 로직 동일)
     const handleFileValidationAndPreview = useCallback(
       async (file) => {
         if (!file) return;
@@ -114,6 +114,7 @@ const ChatInput = forwardRef(
       async (e) => {
         e?.preventDefault();
 
+        // [수정] await 및 성공 여부 확인 후 초기화
         if (files.length > 0) {
           try {
             const file = files[0];
@@ -121,28 +122,35 @@ const ChatInput = forwardRef(
               throw new Error("파일이 선택되지 않았습니다.");
             }
 
-            onSubmit({
+            const success = await onSubmit({
               type: "file",
               content: message.trim(),
               fileData: file,
             });
 
-            setMessage("");
-            setFiles([]);
+            if (success) {
+              setMessage("");
+              setFiles([]);
+            }
           } catch (error) {
             console.error("File submit error:", error);
             setUploadError(error.message);
           }
         } else if (message.trim()) {
-          onSubmit({
+          const success = await onSubmit({
             type: "text",
             content: message.trim(),
           });
-          setMessage("");
+
+          if (success) {
+            setMessage("");
+          }
         }
       },
       [files, message, onSubmit, setMessage]
     );
+
+    // ... (useEffect, handleInputChange, handleMentionSelect, handleKeyDown 등 나머지 로직 동일)
 
     useEffect(() => {
       const handleClickOutside = (event) => {
@@ -329,7 +337,7 @@ const ChatInput = forwardRef(
         setMentionIndex,
         setShowMentionList,
         setShowEmojiPicker,
-        room, // room 의존성 추가
+        room,
       ]
     );
 
@@ -365,7 +373,8 @@ const ChatInput = forwardRef(
       setShowEmojiPicker((prev) => !prev);
     }, [setShowEmojiPicker]);
 
-    const isDisabled = disabled || uploading || externalUploading;
+    // [수정] externalUploading(props)만 사용
+    const isDisabled = disabled || externalUploading;
 
     return (
       <>
@@ -394,8 +403,8 @@ const ChatInput = forwardRef(
             <Box className="absolute bottom-full left-0 right-0 mb-2 z-1000">
               <FilePreview
                 files={files}
-                uploading={uploading}
-                uploadProgress={uploadProgress}
+                uploading={externalUploading} // [수정] externalUploading 전달
+                uploadProgress={0} // 진행률은 별도 prop으로 받거나 단순 로딩 처리
                 uploadError={uploadError}
                 onRemove={handleFileRemove}
                 onRetry={() => setUploadError(null)}

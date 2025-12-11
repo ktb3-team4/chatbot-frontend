@@ -53,6 +53,7 @@ const ChatPage = () => {
     loadingMessages,
     hasMoreMessages,
     handleLoadMore,
+    uploading, // useChatRoom에서 가져온 업로드 상태
   } = useChatRoom();
 
   const renderLoadingState = () => (
@@ -91,7 +92,6 @@ const ChatPage = () => {
           }}
         >
           <Box style={{ marginBottom: "var(--vapor-space-400)" }}>
-            {/* [Fix] Updated Callout usage */}
             <Callout.Root colorPalette="danger">
               <HStack alignItems="center" gap="$200">
                 <ErrorCircleOutlineIcon className="w-5 h-5" />
@@ -120,7 +120,6 @@ const ChatPage = () => {
     if (error) {
       return (
         <div className="d-flex flex-column align-items-center justify-content-center p-4">
-          {/* [Fix] Updated Callout usage */}
           <Callout.Root
             colorPalette="danger"
             className="mb-4 d-flex align-items-center"
@@ -136,7 +135,6 @@ const ChatPage = () => {
     if (connectionStatus === "disconnected") {
       return (
         <Box style={{ margin: "var(--vapor-space-400)" }}>
-          {/* [Fix] Updated Callout usage */}
           <Callout.Root
             colorPalette="warning"
             className="d-flex align-items-center"
@@ -151,7 +149,6 @@ const ChatPage = () => {
     if (messageLoadError) {
       return (
         <div className="d-flex flex-column align-items-center justify-content-center p-4">
-          {/* [Fix] Updated Callout usage */}
           <Callout.Root
             colorPalette="danger"
             className="mb-4 d-flex align-items-center"
@@ -215,7 +212,7 @@ const ChatPage = () => {
         messageInputRef={messageInputRef}
         filePreview={filePreview}
         disabled={connectionStatus !== "connected"}
-        uploading={false}
+        uploading={uploading} // [수정] 실제 uploading 상태 전달
         showEmojiPicker={showEmojiPicker}
         showMentionList={showMentionList}
         mentionFilter={mentionFilter}

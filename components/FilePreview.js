@@ -5,14 +5,13 @@ import {
   ImageIcon,
   PdfIcon as FileText,
   MovieIcon as Film,
-  LoadingOutlineIcon as Loader,
+  RefreshOutlineIcon as Loader,
   MusicIcon as Music,
   FileIcon as File,
 } from "@vapor-ui/icons";
 import { Button, IconButton, Callout } from "@vapor-ui/core";
 import fileService from "@/services/fileService";
 
-// [Fix] Removed defaultProps and used default parameters in function signature
 const FilePreview = ({
   files = [],
   uploading = false,
@@ -33,8 +32,6 @@ const FilePreview = ({
   const previewUrlsRef = useRef(new Map());
   const dragCounter = useRef(0);
 
-  // ... (Rest of the component logic remains exactly the same) ...
-
   // 파일 객체 URL 정리를 위한 클린업
   useEffect(() => {
     return () => {
@@ -45,6 +42,7 @@ const FilePreview = ({
     };
   }, []);
 
+  // 파일 유효성 검사 및 처리를 위한 공통 함수
   const processFile = useCallback(async (file) => {
     try {
       await fileService.validateFile(file);
@@ -65,16 +63,17 @@ const FilePreview = ({
     }
   }, []);
 
-  // ... (Event handlers: useEffect for paste, drop, etc. - keep as is) ...
-
+  // 붙여넣기 이벤트 핸들러
   useEffect(() => {
     if (!allowPaste) return;
+
     const handlePaste = async (e) => {
-      // ... (Paste logic same as before)
       if (!containerRef.current?.contains(e.target)) return;
       if (files.length >= maxFiles) return;
+
       const items = e.clipboardData?.items;
       if (!items) return;
+
       const fileItems = Array.from(items).filter(
         (item) =>
           item.kind === "file" &&
@@ -83,13 +82,18 @@ const FilePreview = ({
             item.type.startsWith("audio/") ||
             item.type === "application/pdf")
       );
+
       if (fileItems.length === 0) return;
+
       e.preventDefault();
+
       const availableSlots = maxFiles - files.length;
       const itemsToProcess = fileItems.slice(0, availableSlots);
+
       for (const item of itemsToProcess) {
         const file = item.getAsFile();
         if (!file) continue;
+
         try {
           const processedFile = await processFile(file);
           onDrop?.(processedFile);
@@ -98,19 +102,24 @@ const FilePreview = ({
         }
       }
     };
+
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
   }, [allowPaste, files.length, maxFiles, onDrop, processFile]);
 
+  // 드래그 앤 드롭 이벤트 핸들러
   useEffect(() => {
     if (!containerRef.current || !onDrop) return;
+
     const handleDrop = async (e) => {
-      // ... (Drop logic same as before)
       e.preventDefault();
       e.stopPropagation();
       dragCounter.current = 0;
+
       containerRef.current.classList.remove("drag-over");
+
       if (files.length >= maxFiles) return;
+
       const droppedFiles = Array.from(e.dataTransfer.files).filter(
         (file) =>
           file.type.startsWith("image/") ||
@@ -118,9 +127,12 @@ const FilePreview = ({
           file.type.startsWith("audio/") ||
           file.type === "application/pdf"
       );
+
       if (droppedFiles.length === 0) return;
+
       const availableSlots = maxFiles - files.length;
       const filesToProcess = droppedFiles.slice(0, availableSlots);
+
       for (const file of filesToProcess) {
         try {
           const processedFile = await processFile(file);
@@ -130,26 +142,31 @@ const FilePreview = ({
         }
       }
     };
-    // ... (Drag enter/leave/over handlers same as before)
+
     const handleDragOver = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (files.length < maxFiles)
+      if (files.length < maxFiles) {
         containerRef.current.classList.add("drag-over");
+      }
     };
+
     const handleDragEnter = (e) => {
       e.preventDefault();
       e.stopPropagation();
       dragCounter.current++;
-      if (dragCounter.current === 1 && files.length < maxFiles)
+      if (dragCounter.current === 1 && files.length < maxFiles) {
         containerRef.current.classList.add("drag-over");
+      }
     };
+
     const handleDragLeave = (e) => {
       e.preventDefault();
       e.stopPropagation();
       dragCounter.current--;
-      if (dragCounter.current === 0)
+      if (dragCounter.current === 0) {
         containerRef.current.classList.remove("drag-over");
+      }
     };
 
     const elem = containerRef.current;
@@ -157,6 +174,7 @@ const FilePreview = ({
     elem.addEventListener("dragover", handleDragOver);
     elem.addEventListener("dragenter", handleDragEnter);
     elem.addEventListener("dragleave", handleDragLeave);
+
     return () => {
       elem.removeEventListener("drop", handleDrop);
       elem.removeEventListener("dragover", handleDragOver);
@@ -172,22 +190,24 @@ const FilePreview = ({
         className: "file-icon",
         "aria-hidden": true,
       };
-      if (file.type.startsWith("image/"))
+
+      if (file.type.startsWith("image/")) {
         return <ImageIcon {...iconProps} color="#00C853" />;
-      else if (file.type.startsWith("video/"))
+      } else if (file.type.startsWith("video/")) {
         return <Film {...iconProps} color="#2196F3" />;
-      else if (file.type.startsWith("audio/"))
+      } else if (file.type.startsWith("audio/")) {
         return <Music {...iconProps} color="#9C27B0" />;
-      else if (file.type === "application/pdf")
+      } else if (file.type === "application/pdf") {
         return <FileText {...iconProps} color="#F44336" />;
-      else return <File {...iconProps} color="#757575" />;
+      } else {
+        return <File {...iconProps} color="#757575" />;
+      }
     },
     [variant]
   );
 
   const renderFilePreview = useCallback(
     (file) => {
-      // ... (Same logic as before)
       const previewUrl = previewUrlsRef.current.get(file.name);
       const previewContainer = "rounded-lg overflow-hidden relative";
       const previewBackground = "bg-transparent-pattern";
@@ -209,6 +229,7 @@ const FilePreview = ({
           </div>
         );
       }
+
       if (file.type.startsWith("video/")) {
         return (
           <div className={`${previewContainer}`}>
@@ -230,6 +251,7 @@ const FilePreview = ({
           </div>
         );
       }
+
       return (
         <div
           className={`${previewContainer} flex flex-col items-center justify-center`}
@@ -250,6 +272,7 @@ const FilePreview = ({
 
   const renderProgressBar = () => {
     if (!uploading) return null;
+
     return (
       <div
         className="mt-4 h-1 w-full bg-gray-200 rounded-full overflow-hidden"
@@ -266,7 +289,6 @@ const FilePreview = ({
     );
   };
 
-  // [Fix] Updated Callout usage
   const renderUploadStatus = useCallback(() => {
     if (uploadError) {
       return (
@@ -284,6 +306,7 @@ const FilePreview = ({
         </Callout.Root>
       );
     }
+
     if (uploading) {
       return (
         <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
@@ -292,6 +315,7 @@ const FilePreview = ({
         </div>
       );
     }
+
     return null;
   }, [uploadError, uploading, uploadProgress, onRetry]);
 
@@ -311,6 +335,7 @@ const FilePreview = ({
           <div key={`${file.name}-${index}`} className="file-preview-item">
             <div className="file-preview-content">
               {renderFilePreview(file)}
+
               <div className="flex-1 min-w-0">
                 {showFileName && (
                   <div
@@ -326,6 +351,7 @@ const FilePreview = ({
                   </div>
                 )}
               </div>
+
               {variant !== "readonly" && (
                 <div className="flex-shrink-0">
                   {!uploading && onRemove && (
@@ -352,14 +378,17 @@ const FilePreview = ({
           </div>
         ))}
       </div>
+
       {renderProgressBar()}
       {renderUploadStatus()}
+
       {files.length >= maxFiles && (
         <Callout.Root colorPalette="warning" className="file-limit-warning">
           <AlertCircle className="w-4 h-4" aria-hidden="true" />
           <span>파일은 최대 {maxFiles}개까지만 업로드할 수 있습니다.</span>
         </Callout.Root>
       )}
+
       {onDrop && (
         <div
           className="absolute inset-0 bg-primary/10 border-2 border-primary border-dashed rounded-lg opacity-0 pointer-events-none transition-opacity drag-over:opacity-100"

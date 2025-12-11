@@ -51,7 +51,6 @@ export const useMessageHandling = (
       return;
     }
 
-    // 가장 오래된 메시지의 타임스탬프 찾기
     const sortedMessages = [...messages].sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
@@ -64,7 +63,6 @@ export const useMessageHandling = (
 
     setLoadingMessages(true);
 
-    // Socket.IO 이벤트만 발행 - 응답은 useChatRoom의 previousMessages 이벤트 핸들러에서 처리
     socketRef.current.emit("fetchPreviousMessages", {
       roomId: router?.query?.room,
       before: beforeTimestamp,
@@ -82,13 +80,13 @@ export const useMessageHandling = (
     async (messageData) => {
       if (!socketRef.current?.connected || !currentUser) {
         Toast.error("채팅 서버와 연결이 끊어졌습니다.");
-        return;
+        return false; // [수정] 실패 반환
       }
 
       const roomId = router?.query?.room;
       if (!roomId) {
         Toast.error("채팅방 정보를 찾을 수 없습니다.");
-        return;
+        return false; // [수정] 실패 반환
       }
 
       try {
@@ -97,7 +95,6 @@ export const useMessageHandling = (
           setUploadError(null);
           setUploadProgress(0);
 
-          // token, sessionId는 이제 S3 업로드에 필요 없지만 호환성을 위해 남겨두거나 제거 가능
           const uploadResponse = await fileService.uploadFile(
             messageData.fileData.file,
             (progress) => setUploadProgress(progress)
@@ -109,14 +106,12 @@ export const useMessageHandling = (
             );
           }
 
-          // S3 업로드 결과 데이터를 소켓으로 전송
           socketRef.current.emit("chatMessage", {
             room: roomId,
             type: "file",
             content: messageData.content || "",
             fileData: {
-              // _id는 백엔드 DB 저장 시 생성되므로 여기서 보낼 필요 없거나 null 처리
-              filename: uploadResponse.data.filename, // S3 Key
+              filename: uploadResponse.data.filename,
               originalname: uploadResponse.data.originalname,
               mimetype: uploadResponse.data.mimetype,
               size: uploadResponse.data.size,
@@ -140,6 +135,7 @@ export const useMessageHandling = (
 
         setShowEmojiPicker(false);
         setShowMentionList(false);
+        return true; // [수정] 성공 반환
       } catch (error) {
         if (
           error.message?.includes("세션") ||
@@ -147,7 +143,7 @@ export const useMessageHandling = (
           error.message?.includes("토큰")
         ) {
           await handleSessionError();
-          return;
+          return false; // [수정] 실패 반환
         }
 
         Toast.error(error.message || "메시지 전송 중 오류가 발생했습니다.");
@@ -155,6 +151,7 @@ export const useMessageHandling = (
           setUploadError(error.message);
           setUploading(false);
         }
+        return false; // [수정] 실패 반환
       }
     },
     [currentUser, router, handleSessionError, socketRef]

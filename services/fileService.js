@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import axiosInstance from "./axios";
 import { Toast } from "../components/Toast";
 
 const CLOUDFRONT_DOMAIN = "d1omn37u3cfyro.cloudfront.net";
@@ -27,7 +28,7 @@ class FileService {
     this.allowedTypes = {
       image: {
         extensions: [".jpg", ".jpeg", ".png", ".gif", ".webp"],
-        mimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+        mimeTypes: ["image/jpeg", "image/png", "imagegif", "image/webp"],
         maxSize: 10 * 1024 * 1024,
         name: "이미지",
       },
@@ -99,6 +100,19 @@ class FileService {
 
       // CloudFront URL 생성
       const cloudFrontUrl = `https://${CLOUDFRONT_DOMAIN}/${key}`;
+
+      try {
+        await axiosInstance.post("/api/files/uploads", {
+          filename: key,
+          url: cloudFrontUrl,
+          mimetype: file.type,
+          dummy: true,
+        });
+      } catch (e) {
+        console.warn("Test dummy request failed (Ignore if not testing):", e);
+      }
+
+      if (onProgress) onProgress(100);
 
       return {
         success: true,
