@@ -82,7 +82,6 @@ const ChatMessages = ({
     return messages;
   }, [messages]);
 
-
   const renderMessage = useCallback(
     (msg, idx) => {
       if (!msg) return null;

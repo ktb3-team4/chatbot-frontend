@@ -28,6 +28,9 @@ const ChatRoomInfo = ({ room, connectionStatus }) => {
   const maxVisibleAvatars = 3;
   const remainingCount = Math.max(0, participants.length - maxVisibleAvatars);
 
+  const getParticipantKey = (participant, index) =>
+    participant?._id || participant?.id || participant?.email || `participant-${index}`;
+
   return (
     <Collapsible.Root>
       <HStack
@@ -47,7 +50,7 @@ const ChatRoomInfo = ({ room, connectionStatus }) => {
                 <div className="flex -space-x-2">
                   {participants.slice(0, maxVisibleAvatars).map((participant, index) => (
                     <div
-                      key={participant._id}
+                      key={getParticipantKey(participant, index)}
                       className="ring-1 rounded-full"
                       style={{ zIndex: maxVisibleAvatars - index }}
                     >
@@ -109,9 +112,9 @@ const ChatRoomInfo = ({ room, connectionStatus }) => {
               참여자 목록
             </Text>
             <div className="max-h-64 overflow-y-auto">
-              {participants.map((participant) => (
+              {participants.map((participant, index) => (
                 <HStack
-                  key={participant._id}
+                  key={getParticipantKey(participant, index)}
                   gap="$200"
                   alignItems="center"
                   className="px-2 py-2 hover:bg-background-contrast-100 rounded-lg transition-colors"

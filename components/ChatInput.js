@@ -233,12 +233,7 @@ const ChatInput = forwardRef(
 
         setShowMentionList(false);
       },
-      [
-        onMessageChange,
-        setMentionFilter,
-        setShowMentionList,
-        setMentionIndex,
-      ]
+      [onMessageChange, setMentionFilter, setShowMentionList, setMentionIndex]
     );
 
     const handleMentionSelect = useCallback(
