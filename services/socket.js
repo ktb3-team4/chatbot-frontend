@@ -63,24 +63,36 @@ class SocketService {
    * - 연결 중이면 기존 Promise 반환
    * - forceNew 제거하여 소켓 재사용
    */
-  async connect(options = {}) {
-    
+  connect(options = {}) {
+
     // 연결 시도 중이면 기존 Promise 대기
     if (this.connectionPromise) {
       return this.connectionPromise;
     }
 
-    // 이미 연결됐다면 기존 소켓 반환
+    // 이미 연결됐다면 기존 소켓 반환 (Promise는 계속 유지)
     if (this.socket?.connected) {
-      return Promise.resolve(this.socket);
+      if (!this.connectionPromise) {
+        this.connectionPromise = Promise.resolve(this.socket);
+      }
+      return this.connectionPromise;
     }
 
-    this.connectionPromise = this._createConnection(options)
-      .finally(() => {
+    // Promise를 먼저 할당하고 체인을 나중에
+    const connectPromise = this._createConnection(options);
+    this.connectionPromise = connectPromise;
+
+    // 에러 처리를 위한 체인 (반환값은 사용하지 않음)
+    connectPromise
+      .then((socket) => {
+        this.isConnecting = false;
+        return socket;
+      })
+      .catch(() => {
         this.connectionPromise = null;
         this.isConnecting = false;
       });
-      
+
     return this.connectionPromise;
   }
 
@@ -321,18 +333,21 @@ class SocketService {
 
   processMessageQueue() {
     const now = Date.now();
+
+    // 5분(300000ms) 이내의 메시지만 필터링
     const validMessages = this.messageQueue.filter(msg => now - msg.timestamp < 300000);
 
-    while (validMessages.length > 0) {
-      const message = validMessages.shift();
+    // 유효한 메시지들을 전송
+    validMessages.forEach(message => {
       try {
         this.socket.emit(message.event, message.data);
       } catch (error) {
         // Silent error handling
       }
-    }
+    });
 
-    this.messageQueue = validMessages;
+    // 큐 비우기
+    this.messageQueue = [];
   }
 
   async emit(event, data) {
