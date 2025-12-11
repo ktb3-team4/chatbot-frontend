@@ -168,41 +168,58 @@ export const useChatRoom = () => {
 
   // 메시지 처리 유틸리티 함수
   const processMessages = useCallback((loadedMessages, hasMore, isInitialLoad = false) => {
-    try {
-      if (!Array.isArray(loadedMessages)) {
-        throw new Error('Invalid messages format');
-      }
+    if (!Array.isArray(loadedMessages)) {
+      throw new Error('Invalid messages format');
+    }
 
-      setMessages(prev => {
-        // 중복 메시지 필터링 개선
-        const newMessages = loadedMessages.filter(msg => {
-          if (!msg._id) return false;
-          if (processedMessageIds.current.has(msg._id)) return false;
-          processedMessageIds.current.add(msg._id);
-          return true;
-        });
-
-        // 기존 메시지와 새 메시지 결합 및 정렬
-        const allMessages = [...prev, ...newMessages].sort((a, b) => {
-          return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
-        });
-
-        // 중복 제거 (가장 최근 메시지 유지)
-        const messageMap = new Map();
-        allMessages.forEach(msg => messageMap.set(msg._id, msg));
-        return Array.from(messageMap.values());
+    setMessages(prev => {
+      // 1. 중복 메시지 필터링 (processedMessageIds로 조기 차단)
+      const newMessages = loadedMessages.filter(msg => {
+        if (!msg._id) return false;
+        if (processedMessageIds.current.has(msg._id)) return false;
+        processedMessageIds.current.add(msg._id);
+        return true;
       });
 
-      // 메시지 로드 상태 업데이트
-      if (isInitialLoad) {
-        setHasMoreMessages(hasMore);
-        initialLoadCompletedRef.current = true;
-      } else {
-        setHasMoreMessages(hasMore);
+      // 2. 병합 (초기 로드 시 prev 무시)
+      const merged = isInitialLoad ? newMessages : [...prev, ...newMessages];
+      /*
+      // 2. 기존 메시지와 새 메시지 결합 및 정렬
+      const allMessages = [...prev, ...newMessages].sort((a, b) => {
+        return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
+      });
+      */
+
+      // 3. 중복 제거 (Map 사용, 마지막 메시지 유지)
+      const messageMap = new Map();
+      for (const msg of merged) {
+        if (msg?._id) messageMap.set(msg._id, msg);
       }
 
-    } catch (error) {
-      throw error;
+      // 4. 정렬 (timestamp 기준, 동일 시간은 ID로 tie-break)
+      return Array.from(messageMap.values()).sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
+
+        if (timeA === timeB) {
+          // 안정적 정렬을 위한 ID 비교
+          return a._id > b._id ? 1 : -1;
+        }
+        return timeA - timeB;
+      });
+
+      /*
+      // 4. 정렬된 배열로 변환
+      return Array.from(messageMap.values()).sort((a, b) => {
+        return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
+      });
+      */
+    });
+
+    // 메시지 로드 상태 업데이트
+    setHasMoreMessages(hasMore);
+    if (isInitialLoad) {
+      initialLoadCompletedRef.current = true;
     }
   }, [setMessages, setHasMoreMessages]);
 

@@ -76,14 +76,12 @@ const ChatMessages = ({
     [currentUser?.id]
   );
 
+  // useChatRoom.processMessages에서 이미 정렬된 상태로 전달되므로 추가 정렬 불필요
   const allMessages = useMemo(() => {
     if (!Array.isArray(messages)) return [];
-
-    return [...messages].sort((a, b) => {
-      if (!a?.timestamp || !b?.timestamp) return 0;
-      return new Date(a.timestamp) - new Date(b.timestamp);
-    });
+    return messages;
   }, [messages]);
+
 
   const renderMessage = useCallback(
     (msg, idx) => {

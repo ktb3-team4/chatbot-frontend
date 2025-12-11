@@ -1,27 +1,36 @@
-# 환경변수
+# ===== Environment Variables =====
 .env
 .env.*
+.env.local
 
-.next
+# ===== Next.js =====
+.next/
 
-# build 결과물
+# ===== Build Outputs =====
 build/
 dist/
 
-# package manager lock 파일 (원하는 것만 사용)
+# ===== Package Manager Lock Files =====
 yarn.lock
 pnpm-lock.yaml
 
+# ===== Node =====
+node_modules/
+bower_components
 
-### macOS ###
-# General
+# ===== Logs =====
+*.log
+logs
+**/*.backup.*
+**/*.back.*
+
+# ===== macOS =====
 .DS_Store
 .AppleDouble
 .LSOverride
 
 # Icon must end with two \r
 Icon
-
 
 # Thumbnails
 ._*
@@ -35,34 +44,24 @@ Icon
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
 
-# Directories potentially created on remote AFP share
+# AFP share
 .AppleDB
 .AppleDesktop
 Network Trash Folder
 Temporary Items
 .apdisk
 
-### macOS Patch ###
-# iCloud generated files
+# macOS iCloud
 *.icloud
 
-### react ###
+# React
 .DS_*
-*.log
-logs
-**/*.backup.*
-**/*.back.*
-
-node_modules
-bower_components
-
 *.sublime*
-
 psd
 thumb
 sketch
 
-### VisualStudioCode ###
+# ===== VS Code =====
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -70,15 +69,12 @@ sketch
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 
-# Local History for Visual Studio Code
+# Local History
 .history/
-
-# Built Visual Studio Code Extensions
-*.vsix
-
-### VisualStudioCode Patch ###
-# Ignore all local history of files
-.history
 .ionide
 
+# VS Code Extensions
+*.vsix
+
+# ===== Additional =====
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,macos,react
