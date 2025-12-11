@@ -27,10 +27,10 @@ export const useRoomHandling = (
   const setupPromiseRef = useRef(null);
   const setupTimeoutRef = useRef(null);
   const joinTimeoutRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const socketReconnectAttempts = useRef(0);
+  // const reconnectTimeoutRef = useRef(null); // 사용되지 않음
+  //const socketReconnectAttempts = useRef(0); // socketService 내부에서 처리
   const messageRetryCountRef = useRef(0);
-  const MAX_SOCKET_RECONNECT_ATTEMPTS = 3;
+  //const MAX_SOCKET_RECONNECT_ATTEMPTS = 3; // socketService 내부에서 처리
   const MAX_MESSAGE_RETRY_ATTEMPTS = 3;
   const MESSAGE_TIMEOUT = 10000;
   const MESSAGE_RETRY_DELAY = 2000;
@@ -44,10 +44,11 @@ export const useRoomHandling = (
       clearTimeout(joinTimeoutRef.current);
       joinTimeoutRef.current = null;
     }
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+    // reconnectTimeoutRef 제거됨
+    // if (reconnectTimeoutRef.current) {
+    //   clearTimeout(reconnectTimeoutRef.current);
+    //   reconnectTimeoutRef.current = null;
+    // }
   }, []);
 
   const handleSessionError = async () => {
@@ -84,25 +85,28 @@ export const useRoomHandling = (
         const currentSocket = socketRef.current;
 
         if (userRooms?.get(currentSocket.id)) {
-          await new Promise((resolve) => {
-            currentSocket.emit('leaveRoom', userRooms.get(currentSocket.id));
-            setTimeout(resolve, 1000);
-          });
+          currentSocket.emit('leaveRoom', userRooms.get(currentSocket.id));
           userRooms.delete(currentSocket.id);
+          // await new Promise((resolve) => {
+          //   setTimeout(resolve, 1000); // 불필요한 1초 대기
+          // });
         }
 
         currentSocket.disconnect();
         currentSocket.removeAllListeners();
         socketRef.current = null;
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // await new Promise(resolve => setTimeout(resolve, 2000)); // 불필요한 2초 대기
       }
 
       const socket = await socketService.connect({
         auth: {
           token: user.token,
           sessionId: user.sessionId
-        },
+        }
+        // socketService는 이미 최적화된 연결 관리 로직을 가지고 있음
+        // 인증 정보만 전달하고 나머지 설정은 socketService의 기본값을 사용
+        /*
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: MAX_SOCKET_RECONNECT_ATTEMPTS,
@@ -113,8 +117,13 @@ export const useRoomHandling = (
         pingInterval: 8000,
         forceNew: true,
         autoConnect: true
+        */
       });
 
+      // socketService.connect()가 이미 연결 보장하므로 중복 Promise 래핑 불필요
+      return socket;
+
+      /*
       return new Promise((resolve, reject) => {
         let socketConnected = false;
         const connectionTimeout = setTimeout(() => {
@@ -130,7 +139,6 @@ export const useRoomHandling = (
             clearTimeout(connectionTimeout);
             socket.removeListener('connect_error', handleError);
             socket.removeListener('error', handleError);
-            socketReconnectAttempts.current = 0;
             resolve(socket);
           }
         };
@@ -152,6 +160,7 @@ export const useRoomHandling = (
         socket.once('connect_error', handleError);
         socket.once('error', handleError);
       });
+      */
 
     } catch (error) {
       if (error.message === 'Invalid authentication state') {
@@ -443,7 +452,7 @@ export const useRoomHandling = (
       setupPromiseRef.current = null;
       initializingRef.current = false;
       setupCompleteRef.current = false;
-      socketReconnectAttempts.current = 0;
+      //socketReconnectAttempts.current = 0; // socketService 내부에서 처리
       messageRetryCountRef.current = 0;
 
       if (socketRef.current) {
