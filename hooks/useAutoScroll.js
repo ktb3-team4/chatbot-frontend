@@ -1,13 +1,13 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from "react";
 
 /**
  * 채팅 메시지 자동 스크롤 훅
- * 
+ *
  * 특징:
  * - 내가 쓴 메시지: 무조건 최하단 스크롤
  * - 남이 쓴 메시지: 사용자가 하단 근처에 있을 때만 자동 스크롤
  * - 이전 메시지 로딩 시: 스크롤 위치 복원
- * 
+ *
  * @param {Array} messages - 메시지 배열
  * @param {string} currentUserId - 현재 사용자 ID
  * @param {boolean} isLoadingMessages - 이전 메시지 로딩 중 여부
@@ -15,8 +15,8 @@ import { useRef, useEffect, useCallback } from 'react';
  * @returns {Object} { containerRef, scrollToBottom, isNearBottom }
  */
 export const useAutoScroll = (
-  messages = [], 
-  currentUserId = null, 
+  messages = [],
+  currentUserId = null,
   isLoadingMessages = false,
   threshold = 100
 ) => {
@@ -24,11 +24,15 @@ export const useAutoScroll = (
   const isNearBottomRef = useRef(true);
   const previousMessagesLengthRef = useRef(0);
   const isAutoScrollingRef = useRef(false);
-  
+  const resetScrollFlagRef = useRef(null);
+  const pendingScrollRef = useRef(null);
+
   // 스크롤 복원을 위한 ref
   const previousScrollHeightRef = useRef(0);
   const previousScrollTopRef = useRef(0);
   const isRestoringRef = useRef(false);
+  const throttleTimeoutRef = useRef(null);
+  const lastScrollTopRef = useRef(0);
 
   /**
    * 스크롤이 하단 근처에 있는지 확인
@@ -46,22 +50,36 @@ export const useAutoScroll = (
   /**
    * 최하단으로 스크롤
    */
-  const scrollToBottom = useCallback((behavior = 'smooth') => {
-    const container = containerRef.current;
-    if (!container) return;
+  const scrollToBottom = useCallback((behavior = "smooth") => {
+    if (pendingScrollRef.current) {
+      cancelAnimationFrame(pendingScrollRef.current);
+      pendingScrollRef.current = null;
+    }
 
-    isAutoScrollingRef.current = true;
+    pendingScrollRef.current = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      if (!container) return;
 
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior
+      isAutoScrollingRef.current = true;
+      if (resetScrollFlagRef.current) {
+        cancelAnimationFrame(resetScrollFlagRef.current);
+        resetScrollFlagRef.current = null;
+      }
+
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior,
+      });
+
+      // 스크롤 완료 후 플래그 리셋 (burst 상황에서 마지막 요청만 유효하게 유지)
+      resetScrollFlagRef.current = requestAnimationFrame(() => {
+        isAutoScrollingRef.current = false;
+        isNearBottomRef.current = true;
+        resetScrollFlagRef.current = null;
+      });
+
+      pendingScrollRef.current = null;
     });
-
-    // 스크롤 완료 후 플래그 리셋
-    setTimeout(() => {
-      isAutoScrollingRef.current = false;
-      isNearBottomRef.current = true;
-    }, 300);
   }, []);
 
   /**
@@ -75,13 +93,32 @@ export const useAutoScroll = (
       // 자동 스크롤 중이면 무시
       if (isAutoScrollingRef.current) return;
 
-      isNearBottomRef.current = checkIsNearBottom();
+      const currentTop = container.scrollTop;
+      if (Math.abs(currentTop - lastScrollTopRef.current) < 1) {
+        return;
+      }
+
+      lastScrollTopRef.current = currentTop;
+
+      if (!throttleTimeoutRef.current) {
+        throttleTimeoutRef.current = requestAnimationFrame(() => {
+          isNearBottomRef.current = checkIsNearBottom();
+          throttleTimeoutRef.current = null;
+        });
+      }
     };
 
-    container.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
-      container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener("scroll", handleScroll);
+
+      if (throttleTimeoutRef.current) {
+        cancelAnimationFrame(throttleTimeoutRef.current);
+        throttleTimeoutRef.current = null;
+      }
+
+      isNearBottomRef.current = checkIsNearBottom();
     };
   }, [checkIsNearBottom]);
 
@@ -126,7 +163,10 @@ export const useAutoScroll = (
     }
 
     // 메시지가 추가되지 않았으면 무시
-    if (messages.length === 0 || messages.length === previousMessagesLengthRef.current) {
+    if (
+      messages.length === 0 ||
+      messages.length === previousMessagesLengthRef.current
+    ) {
       return;
     }
 
@@ -148,16 +188,19 @@ export const useAutoScroll = (
     if (!latestMessage) return;
 
     // 메시지 발신자 확인
-    const senderId = latestMessage.sender?._id || latestMessage.sender?.id || latestMessage.sender;
+    const senderId =
+      latestMessage.sender?._id ||
+      latestMessage.sender?.id ||
+      latestMessage.sender;
     const isMyMessage = senderId === currentUserId;
 
     // 자동 스크롤 조건 확인
     if (isMyMessage) {
       // 내가 쓴 메시지 → 무조건 스크롤
-      scrollToBottom('smooth');
+      scrollToBottom("smooth");
     } else if (isNearBottomRef.current) {
       // 남이 쓴 메시지 + 하단 근처에 있음 → 자동 스크롤
-      scrollToBottom('smooth');
+      scrollToBottom("smooth");
     } else {
       // 남이 쓴 메시지 + 상단에 있음 → 스크롤 안함
     }
@@ -169,14 +212,27 @@ export const useAutoScroll = (
   useEffect(() => {
     if (messages.length > 0 && previousMessagesLengthRef.current === 0) {
       // 초기 로드는 즉시 스크롤 (애니메이션 없이)
-      setTimeout(() => scrollToBottom('auto'), 100);
+      setTimeout(() => scrollToBottom("auto"), 100);
     }
   }, [messages.length, scrollToBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (resetScrollFlagRef.current) {
+        cancelAnimationFrame(resetScrollFlagRef.current);
+        resetScrollFlagRef.current = null;
+      }
+      if (pendingScrollRef.current) {
+        cancelAnimationFrame(pendingScrollRef.current);
+        pendingScrollRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     containerRef,
     scrollToBottom,
-    isNearBottom: () => isNearBottomRef.current
+    isNearBottom: () => isNearBottomRef.current,
   };
 };
 
