@@ -16,8 +16,8 @@ const toastStyles = `
     box-shadow: none !important;
     padding: 0 !important;
     min-height: auto !important;
+    pointer-events: auto; 
   }
-  
   .Toastify__toast-body {
     padding: 0 !important;
     margin: 0 !important;
