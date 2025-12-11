@@ -50,7 +50,7 @@ const ChatMessages = ({
   );
 
   // 자동 스크롤 훅 (스크롤 복원 기능 포함)
-  const { containerRef, scrollToBottom, isNearBottom } = useAutoScroll(
+  const { containerRef, scrollToBottom } = useAutoScroll(
     messages,
     currentUser?.id,
     loadingMessages,

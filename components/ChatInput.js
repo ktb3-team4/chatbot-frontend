@@ -7,15 +7,7 @@ import React, {
   forwardRef,
 } from "react";
 import { LikeIcon, AttachFileOutlineIcon, SendIcon } from "@vapor-ui/icons";
-import {
-  Button,
-  IconButton,
-  VStack,
-  HStack,
-  Box,
-  Field,
-  Textarea,
-} from "@vapor-ui/core";
+import { IconButton, VStack, HStack, Box, Textarea } from "@vapor-ui/core";
 import EmojiPicker from "./EmojiPicker";
 import MentionDropdown from "./MentionDropdown";
 import FilePreview from "./FilePreview";
@@ -53,11 +45,10 @@ const ChatInput = forwardRef(
     const messageInputRef = ref || internalInputRef;
     const filesRef = useRef([]);
     const [files, setFiles] = useState([]);
-    const [uploading, setUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
+    const uploading = false;
+    const uploadProgress = 0;
     const [uploadError, setUploadError] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
-    const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
 
     const handleFileValidationAndPreview = useCallback(
       async (file) => {
@@ -99,7 +90,6 @@ const ChatInput = forwardRef(
       );
       URL.revokeObjectURL(fileToRemove.url);
       setUploadError(null);
-      setUploadProgress(0);
     }, []);
 
     const handleFileDrop = useCallback(
@@ -217,9 +207,7 @@ const ChatInput = forwardRef(
       };
     }, []);
 
-    const calculateMentionPosition = useCallback((textarea, atIndex) => {
-      return { top: -250, left: 0 };
-    }, []);
+    const mentionPosition = useMemo(() => ({ top: -250, left: 0 }), []);
 
     const handleInputChange = useCallback(
       (e) => {
@@ -239,9 +227,6 @@ const ChatInput = forwardRef(
             setShowMentionList(true);
             setMentionIndex(0);
 
-            // Calculate and set mention dropdown position
-            const position = calculateMentionPosition(e.target, lastAtSymbol);
-            setMentionPosition(position);
             return;
           }
         }
@@ -253,7 +238,6 @@ const ChatInput = forwardRef(
         setMentionFilter,
         setShowMentionList,
         setMentionIndex,
-        calculateMentionPosition,
       ]
     );
 
