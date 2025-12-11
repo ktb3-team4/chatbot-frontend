@@ -5,12 +5,15 @@ on:
     branches:
       - main
       - develop
+      - feat/env
   pull_request:
     branches:
       - main
+      - develop
+      - feat/env
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/community-front
+  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/front
   IMAGE_TAG: latest
 
 jobs:
@@ -27,7 +30,10 @@ jobs:
 
       - name: Build and Push Image
         run: |
-          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
+            --build-arg NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }} \
+            -t $IMAGE_NAME:$IMAGE_TAG .
           docker push $IMAGE_NAME:$IMAGE_TAG
 
   deploy:
@@ -35,20 +41,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add known_hosts
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
 
       - name: Deploy to EC2
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash -s' <<EOF
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash -s' <<EOF
           set -e
 
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           DOCKER_TOKEN=${{ secrets.DOCKER_TOKEN }}
-          IMAGE_NAME=\$DOCKER_USERNAME/community-front:latest
+          IMAGE_NAME=\$DOCKER_USERNAME/front:latest
 
           echo ">>> Docker Hub login"
           echo "\$DOCKER_TOKEN" | docker login -u "\$DOCKER_USERNAME" --password-stdin
@@ -57,8 +67,8 @@ jobs:
           docker pull "\$IMAGE_NAME"
 
           echo ">>> Move to app directory"
-          mkdir -p /home/${{ secrets.SERVER_USER }}/front
-          cd /home/${{ secrets.SERVER_USER }}/front
+          mkdir -p /home/${{ secrets.SERVER_USER }}/app
+          cd /home/${{ secrets.SERVER_USER }}/app
 
           echo ">>> docker compose down (if exists)"
           docker compose down || true
