@@ -24,6 +24,7 @@ export const useAutoScroll = (
   const isNearBottomRef = useRef(true);
   const previousMessagesLengthRef = useRef(0);
   const isAutoScrollingRef = useRef(false);
+  const resetScrollFlagRef = useRef(null);
 
   // 스크롤 복원을 위한 ref
   const previousScrollHeightRef = useRef(0);
@@ -53,17 +54,22 @@ export const useAutoScroll = (
     if (!container) return;
 
     isAutoScrollingRef.current = true;
+    if (resetScrollFlagRef.current) {
+      cancelAnimationFrame(resetScrollFlagRef.current);
+      resetScrollFlagRef.current = null;
+    }
 
     container.scrollTo({
       top: container.scrollHeight,
       behavior,
     });
 
-    // 스크롤 완료 후 플래그 리셋
-    setTimeout(() => {
+    // 스크롤 완료 후 플래그 리셋 (burst 상황에서 마지막 요청만 유효하게 유지)
+    resetScrollFlagRef.current = requestAnimationFrame(() => {
       isAutoScrollingRef.current = false;
       isNearBottomRef.current = true;
-    }, 300);
+      resetScrollFlagRef.current = null;
+    });
   }, []);
 
   /**
@@ -199,6 +205,15 @@ export const useAutoScroll = (
       setTimeout(() => scrollToBottom("auto"), 100);
     }
   }, [messages.length, scrollToBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (resetScrollFlagRef.current) {
+        cancelAnimationFrame(resetScrollFlagRef.current);
+        resetScrollFlagRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     containerRef,

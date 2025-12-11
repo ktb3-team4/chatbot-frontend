@@ -69,7 +69,7 @@ const ChatMessages = ({
   const allMessages = useMemo(() => {
     if (!Array.isArray(messages)) return [];
 
-    return messages.sort((a, b) => {
+    return [...messages].sort((a, b) => {
       if (!a?.timestamp || !b?.timestamp) return 0;
       return new Date(a.timestamp) - new Date(b.timestamp);
     });

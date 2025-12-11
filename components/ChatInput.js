@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   forwardRef,
@@ -50,6 +51,7 @@ const ChatInput = forwardRef(
     const dropZoneRef = useRef(null);
     const internalInputRef = useRef(null);
     const messageInputRef = ref || internalInputRef;
+    const filesRef = useRef([]);
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -73,6 +75,7 @@ const ChatInput = forwardRef(
           };
 
           setFiles((prev) => [...prev, filePreview]);
+          filesRef.current = [...filesRef.current, filePreview];
           setUploadError(null);
           onFileSelect?.(file);
         } catch (error) {
@@ -90,6 +93,9 @@ const ChatInput = forwardRef(
     const handleFileRemove = useCallback((fileToRemove) => {
       setFiles((prev) =>
         prev.filter((file) => file.name !== fileToRemove.name)
+      );
+      filesRef.current = filesRef.current.filter(
+        (file) => file.name !== fileToRemove.name
       );
       URL.revokeObjectURL(fileToRemove.url);
       setUploadError(null);
@@ -193,15 +199,23 @@ const ChatInput = forwardRef(
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
         document.removeEventListener("paste", handlePaste);
-        files.forEach((file) => URL.revokeObjectURL(file.url));
       };
     }, [
       showEmojiPicker,
       setShowEmojiPicker,
-      files,
       messageInputRef,
       handleFileValidationAndPreview,
     ]);
+
+    useEffect(() => {
+      filesRef.current = files;
+    }, [files]);
+
+    useEffect(() => {
+      return () => {
+        filesRef.current.forEach((file) => URL.revokeObjectURL(file.url));
+      };
+    }, []);
 
     const calculateMentionPosition = useCallback((textarea, atIndex) => {
       return { top: -250, left: 0 };
@@ -274,11 +288,15 @@ const ChatInput = forwardRef(
       [message, setMessage, setShowMentionList, messageInputRef]
     );
 
+    const filteredParticipants = useMemo(
+      () => getFilteredParticipants(room),
+      [getFilteredParticipants, room, mentionFilter]
+    );
+
     const handleKeyDown = useCallback(
       (e) => {
         if (showMentionList) {
-          const participants = getFilteredParticipants(room); // room 객체 전달
-          const participantsCount = participants.length;
+          const participantsCount = filteredParticipants.length;
 
           switch (e.key) {
             case "ArrowDown":
@@ -299,7 +317,7 @@ const ChatInput = forwardRef(
             case "Enter":
               e.preventDefault();
               if (participantsCount > 0) {
-                handleMentionSelect(participants[mentionIndex]);
+                handleMentionSelect(filteredParticipants[mentionIndex]);
               }
               break;
 
@@ -326,7 +344,7 @@ const ChatInput = forwardRef(
         showMentionList,
         showEmojiPicker,
         mentionIndex,
-        getFilteredParticipants,
+        filteredParticipants,
         handleMentionSelect,
         handleSubmit,
         setMentionIndex,
@@ -507,7 +525,7 @@ const ChatInput = forwardRef(
             }}
           >
             <MentionDropdown
-              participants={getFilteredParticipants(room)}
+              participants={filteredParticipants}
               activeIndex={mentionIndex}
               onSelect={handleMentionSelect}
               onMouseEnter={(index) => setMentionIndex(index)}
