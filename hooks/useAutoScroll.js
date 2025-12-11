@@ -25,6 +25,7 @@ export const useAutoScroll = (
   const previousMessagesLengthRef = useRef(0);
   const isAutoScrollingRef = useRef(false);
   const resetScrollFlagRef = useRef(null);
+  const pendingScrollRef = useRef(null);
 
   // 스크롤 복원을 위한 ref
   const previousScrollHeightRef = useRef(0);
@@ -50,25 +51,34 @@ export const useAutoScroll = (
    * 최하단으로 스크롤
    */
   const scrollToBottom = useCallback((behavior = "smooth") => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    isAutoScrollingRef.current = true;
-    if (resetScrollFlagRef.current) {
-      cancelAnimationFrame(resetScrollFlagRef.current);
-      resetScrollFlagRef.current = null;
+    if (pendingScrollRef.current) {
+      cancelAnimationFrame(pendingScrollRef.current);
+      pendingScrollRef.current = null;
     }
 
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior,
-    });
+    pendingScrollRef.current = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      if (!container) return;
 
-    // 스크롤 완료 후 플래그 리셋 (burst 상황에서 마지막 요청만 유효하게 유지)
-    resetScrollFlagRef.current = requestAnimationFrame(() => {
-      isAutoScrollingRef.current = false;
-      isNearBottomRef.current = true;
-      resetScrollFlagRef.current = null;
+      isAutoScrollingRef.current = true;
+      if (resetScrollFlagRef.current) {
+        cancelAnimationFrame(resetScrollFlagRef.current);
+        resetScrollFlagRef.current = null;
+      }
+
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior,
+      });
+
+      // 스크롤 완료 후 플래그 리셋 (burst 상황에서 마지막 요청만 유효하게 유지)
+      resetScrollFlagRef.current = requestAnimationFrame(() => {
+        isAutoScrollingRef.current = false;
+        isNearBottomRef.current = true;
+        resetScrollFlagRef.current = null;
+      });
+
+      pendingScrollRef.current = null;
     });
   }, []);
 
@@ -211,6 +221,10 @@ export const useAutoScroll = (
       if (resetScrollFlagRef.current) {
         cancelAnimationFrame(resetScrollFlagRef.current);
         resetScrollFlagRef.current = null;
+      }
+      if (pendingScrollRef.current) {
+        cancelAnimationFrame(pendingScrollRef.current);
+        pendingScrollRef.current = null;
       }
     };
   }, []);
