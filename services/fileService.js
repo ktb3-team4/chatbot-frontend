@@ -11,6 +11,8 @@ const S3_CONFIG = {
   bucket: process.env.NEXT_PUBLIC_BUCKET,
 };
 
+const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
+
 class FileService {
   constructor() {
     this.s3Client = new S3Client({
