@@ -16,7 +16,14 @@ import fileService from "@/services/fileService";
 import { useAuth } from "@/contexts/AuthContext";
 
 const FileMessage = ({
-  msg = {},
+  msg = {
+    file: {
+      mimetype: "",
+      filename: "",
+      originalname: "",
+      size: 0,
+    },
+  },
   isMine = false,
   currentUser = null,
   onReactionAdd,
@@ -28,17 +35,14 @@ const FileMessage = ({
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const messageDomRef = useRef(null);
+
   useEffect(() => {
     if (msg?.file) {
-      const url = fileService.getPreviewUrl(
-        msg.file,
-        user?.token,
-        user?.sessionId,
-        true
-      );
+      // S3 URL은 토큰이 필요 없으므로 file 객체만 전달
+      const url = fileService.getPreviewUrl(msg.file);
       setPreviewUrl(url);
     }
-  }, [msg?.file, user?.token, user?.sessionId]);
+  }, [msg?.file]); // user.token 등은 의존성에서 제거 가능
 
   if (!msg?.file) {
     return null;
@@ -76,12 +80,20 @@ const FileMessage = ({
       if (!encodedFilename) return "Unknown File";
 
       const base64 = encodedFilename.replace(/-/g, "+").replace(/_/g, "/");
-
       const pad = base64.length % 4;
       const paddedBase64 = pad ? base64 + "=".repeat(4 - pad) : base64;
 
-      if (paddedBase64.match(/^[A-Za-z0-9+/=]+$/)) {
-        return Buffer.from(paddedBase64, "base64").toString("utf8");
+      if (/^[A-Za-z0-9+/=]+$/.test(paddedBase64)) {
+        if (typeof Buffer !== "undefined" && Buffer.from) {
+          return Buffer.from(paddedBase64, "base64").toString("utf8");
+        }
+
+        if (typeof atob !== "undefined") {
+          const binary = atob(paddedBase64);
+          const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+          const decoder = new TextDecoder();
+          return decoder.decode(bytes);
+        }
       }
 
       return decodeURIComponent(encodedFilename);
@@ -106,30 +118,13 @@ const FileMessage = ({
     setError(null);
 
     try {
-      if (!msg.file?.filename) {
-        throw new Error("파일 정보가 없습니다.");
-      }
-
-      if (!user?.token || !user?.sessionId) {
-        throw new Error("인증 정보가 없습니다.");
-      }
-
-      const baseUrl = fileService.getFileUrl(msg.file.filename, false);
-      const authenticatedUrl = `${baseUrl}?token=${encodeURIComponent(
-        user?.token
-      )}&sessionId=${encodeURIComponent(user?.sessionId)}&download=true`;
-
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = authenticatedUrl;
-      document.body.appendChild(iframe);
-
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 5000);
+      const url = msg.file?.url || fileService.getFileUrl(msg.file?.filename);
+      if (!url) throw new Error("파일 링크가 없습니다.");
+      // S3 URL은 새 탭에서 열어서 브라우저가 처리하도록 함
+      window.open(url, "_blank");
     } catch (error) {
       console.error("File download error:", error);
-      setError(error.message || "파일 다운로드 중 오류가 발생했습니다.");
+      setError(error.message);
     }
   };
 
@@ -143,23 +138,15 @@ const FileMessage = ({
         throw new Error("파일 정보가 없습니다.");
       }
 
+      // S3는 public 접근이므로 토큰 체크는 앱 로직상 로그인 확인용으로만 유지
       if (!user?.token || !user?.sessionId) {
         throw new Error("인증 정보가 없습니다.");
       }
 
-      const baseUrl = fileService.getFileUrl(msg.file.filename, true);
-      const authenticatedUrl = `${baseUrl}?token=${encodeURIComponent(
-        user?.token
-      )}&sessionId=${encodeURIComponent(user?.sessionId)}`;
-
-      const newWindow = window.open(authenticatedUrl, "_blank");
-      if (!newWindow) {
-        throw new Error("팝업이 차단되었습니다. 팝업 차단을 해제해주세요.");
-      }
-      newWindow.opener = null;
+      const url = msg.file?.url || fileService.getFileUrl(msg.file?.filename);
+      window.open(url, "_blank");
     } catch (error) {
-      console.error("File view error:", error);
-      setError(error.message || "파일 보기 중 오류가 발생했습니다.");
+      setError(error.message);
     }
   };
 
@@ -173,16 +160,8 @@ const FileMessage = ({
         );
       }
 
-      if (!user?.token || !user?.sessionId) {
-        throw new Error("인증 정보가 없습니다.");
-      }
-
-      const previewUrl = fileService.getPreviewUrl(
-        msg.file,
-        user?.token,
-        user?.sessionId,
-        true
-      );
+      const previewUrl =
+        msg.file?.url || fileService.getFileUrl(msg.file?.filename);
 
       return (
         <div className="bg-transparent-pattern">
@@ -263,8 +242,12 @@ const FileMessage = ({
                 controls
                 preload="metadata"
                 aria-label={`${originalname} 비디오`}
-                crossOrigin="use-credentials"
+                crossOrigin="anonymous"
               >
+                {/* [수정됨] 
+                  crossOrigin="use-credentials" -> "anonymous" 
+                  S3 직접 접근 시 인증 헤더를 보내면 CORS 오류가 발생할 수 있습니다.
+                */}
                 <source src={previewUrl} type={mimetype} />
                 <track kind="captions" />
                 비디오를 재생할 수 없습니다.
@@ -311,8 +294,9 @@ const FileMessage = ({
                 controls
                 preload="metadata"
                 aria-label={`${originalname} 오디오`}
-                crossOrigin="use-credentials"
+                crossOrigin="anonymous"
               >
+                {/* [수정됨] crossOrigin="use-credentials" -> "anonymous" */}
                 <source src={previewUrl} type={mimetype} />
                 오디오를 재생할 수 없습니다.
               </audio>
@@ -366,7 +350,7 @@ const FileMessage = ({
           </span>
         </HStack>
 
-        {/* Message Bubble - Outline Based */}
+        {/* Message Bubble */}
         <div
           className={`
           relative group
@@ -437,19 +421,6 @@ const FileMessage = ({
       </VStack>
     </div>
   );
-};
-
-FileMessage.defaultProps = {
-  msg: {
-    file: {
-      mimetype: "",
-      filename: "",
-      originalname: "",
-      size: 0,
-    },
-  },
-  isMine: false,
-  currentUser: null,
 };
 
 export default React.memo(FileMessage);

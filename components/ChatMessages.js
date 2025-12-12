@@ -1,10 +1,10 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useEffect, useRef } from "react";
 import { Text, VStack } from "@vapor-ui/core";
 import SystemMessage from "./SystemMessage";
 import FileMessage from "./FileMessage";
 import UserMessage from "./UserMessage";
-import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import { useAutoScroll } from "../hooks/useAutoScroll";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 
 const LoadingIndicator = React.memo(() => (
   <div className="loading-messages">
@@ -49,12 +49,7 @@ const ChatMessages = ({
   onLoadMore = () => {},
   socketRef,
 }) => {
-  // 무한 스크롤 훅
-  const { sentinelRef } = useInfiniteScroll(
-    onLoadMore,
-    hasMoreMessages,
-    loadingMessages
-  );
+  const initialScrollDoneRef = useRef(false);
 
   // 자동 스크롤 훅 (스크롤 복원 기능 포함)
   const { containerRef, scrollToBottom } = useAutoScroll(
@@ -63,6 +58,33 @@ const ChatMessages = ({
     loadingMessages,
     100 // 하단 100px 이내면 자동 스크롤
   );
+
+  // 무한 스크롤 훅 - 스크롤 컨테이너를 root로 지정하여 상단 sentinel 관찰
+  const { sentinelRef } = useInfiniteScroll(
+    onLoadMore,
+    hasMoreMessages,
+    loadingMessages,
+    {
+      rootRef: containerRef,
+      // 약간의 여유를 두고 호출하여 빠르게 이전 메시지를 불러올 수 있도록 설정
+      rootMargin: "20px",
+      threshold: 0,
+    }
+  );
+
+  // 초기 로드/재접속 후 메시지가 준비되면 바로 최신 위치로 스크롤
+  useEffect(() => {
+    if (loadingMessages) return;
+    if (!containerRef?.current) return;
+    if (messages.length === 0) {
+      initialScrollDoneRef.current = false;
+      return;
+    }
+    if (!initialScrollDoneRef.current) {
+      initialScrollDoneRef.current = true;
+      scrollToBottom("auto");
+    }
+  }, [messages.length, loadingMessages, scrollToBottom, containerRef]);
   const isMine = useCallback(
     (msg) => {
       if (!msg?.sender || !currentUser?.id) return false;
@@ -81,7 +103,6 @@ const ChatMessages = ({
     if (!Array.isArray(messages)) return [];
     return messages;
   }, [messages]);
-
 
   const renderMessage = useCallback(
     (msg, idx) => {

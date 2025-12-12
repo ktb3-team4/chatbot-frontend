@@ -18,7 +18,6 @@ const MentionDropdown = ({
     const activeItem = itemRefs.current.get(activeIndex);
     if (!activeItem) return;
 
-    // Use native scrollIntoView to avoid manual measurements.
     activeItem.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
 
@@ -70,14 +69,16 @@ const MentionDropdown = ({
               onClick={() => onSelect(user)}
               onKeyDown={(e) => handleKeyDown(e, user)}
               onMouseEnter={() => onMouseEnter(index)}
-              className="transition-all duration-200 cursor-pointer"
+              // [수정] onMouseEnterCapture/onMouseLeave 제거하고 hover 클래스 사용
+              className={`transition-all duration-200 cursor-pointer ${
+                !isActive ? "hover:bg-white/5" : ""
+              }`}
               style={{
                 padding: "10px 12px",
                 marginBottom: "4px",
                 borderRadius: "8px",
-                background: isActive
-                  ? "rgba(59, 130, 246, 0.15)"
-                  : "transparent",
+                // isActive일 때는 고정색, 아닐 때는 className의 hover 효과 적용
+                background: isActive ? "rgba(59, 130, 246, 0.15)" : undefined, // transparent 대신 undefined로 두어 hover 클래스 적용 허용
                 border: isActive
                   ? "1px solid rgba(59, 130, 246, 0.4)"
                   : "1px solid transparent",
@@ -87,17 +88,6 @@ const MentionDropdown = ({
                         "0 0 0 1px rgba(59, 130, 246, 0.2), 0 2px 8px rgba(59, 130, 246, 0.15)",
                     }
                   : {}),
-              }}
-              onMouseEnterCapture={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background =
-                    "rgba(255, 255, 255, 0.05)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                }
               }}
             >
               <HStack gap="$200" alignItems="center">

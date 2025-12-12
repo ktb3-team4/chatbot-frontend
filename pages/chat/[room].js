@@ -22,6 +22,7 @@ const ChatPage = () => {
     streamingMessages,
     connected,
     connectionStatus,
+    cacheHydrated,
     messageLoadError,
     retryMessageLoad,
     currentUser,
@@ -52,8 +53,12 @@ const ChatPage = () => {
     handleReactionRemove,
     loadingMessages,
     hasMoreMessages,
-    handleLoadMore, // 페이징 핸들러 추가
+    handleLoadMore,
+    uploading, // useChatRoom에서 가져온 업로드 상태
   } = useChatRoom();
+
+  const shouldShowLoadingState =
+    !cacheHydrated && (loading || !room);
 
   const renderLoadingState = () => (
     <div className="chat-container">
@@ -91,12 +96,12 @@ const ChatPage = () => {
           }}
         >
           <Box style={{ marginBottom: "var(--vapor-space-400)" }}>
-            <Callout color="danger">
+            <Callout.Root colorPalette="danger">
               <HStack alignItems="center" gap="$200">
                 <ErrorCircleOutlineIcon className="w-5 h-5" />
                 <Text>{error || "채팅방을 불러오는데 실패했습니다."}</Text>
               </HStack>
-            </Callout>
+            </Callout.Root>
           </Box>
           <Button onClick={() => window.location.reload()}>다시 시도</Button>
         </Card.Body>
@@ -105,7 +110,7 @@ const ChatPage = () => {
   );
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && !cacheHydrated) {
       return (
         <div className="d-flex align-items-center justify-content-center p-4">
           <div className="spinner-border spinner-border-sm me-2" role="status">
@@ -116,71 +121,111 @@ const ChatPage = () => {
       );
     }
 
-    if (error) {
+    if (error && !cacheHydrated) {
       return (
         <div className="d-flex flex-column align-items-center justify-content-center p-4">
-          <Callout color="danger" className="mb-4 d-flex align-items-center">
+          <Callout.Root
+            colorPalette="danger"
+            className="mb-4 d-flex align-items-center"
+          >
             <ErrorCircleOutlineIcon className="w-5 h-5 me-2" />
             <span>{error}</span>
-          </Callout>
+          </Callout.Root>
           <Button onClick={() => window.location.reload()}>다시 시도</Button>
         </div>
       );
     }
 
-    if (connectionStatus === "disconnected") {
-      return (
-        <Box style={{ margin: "var(--vapor-space-400)" }}>
-          <Callout color="warning" className="d-flex align-items-center">
-            <NetworkIcon className="w-5 h-5 me-2" />
-            <span>연결이 끊어졌습니다. 재연결을 시도합니다...</span>
-          </Callout>
-        </Box>
-      );
-    }
-
-    if (messageLoadError) {
+    if (messageLoadError && !cacheHydrated) {
       return (
         <div className="d-flex flex-column align-items-center justify-content-center p-4">
-          <Callout color="danger" className="mb-4 d-flex align-items-center">
+          <Callout.Root
+            colorPalette="danger"
+            className="mb-4 d-flex align-items-center"
+          >
             <ErrorCircleOutlineIcon className="w-5 h-5 me-2" />
             <span>메시지 로딩 중 오류가 발생했습니다.</span>
-          </Callout>
+          </Callout.Root>
           <Button onClick={retryMessageLoad}>메시지 다시 로드</Button>
         </div>
       );
     }
 
+    const banners = [];
+    if (error && cacheHydrated) {
+      banners.push(
+        <Callout.Root
+          key="cache-error"
+          colorPalette="danger"
+          className="mb-2 d-flex align-items-center"
+        >
+          <ErrorCircleOutlineIcon className="w-5 h-5 me-2" />
+          <span>{error}</span>
+        </Callout.Root>
+      );
+    }
+
+    if (connectionStatus === "disconnected") {
+      banners.push(
+        <Callout.Root
+          key="connection-warning"
+          colorPalette="warning"
+          className="mb-2 d-flex align-items-center"
+        >
+          <NetworkIcon className="w-5 h-5 me-2" />
+          <span>연결이 끊어졌습니다. 재연결을 시도합니다...</span>
+        </Callout.Root>
+      );
+    }
+
+    if (messageLoadError && cacheHydrated) {
+      banners.push(
+        <Callout.Root
+          key="message-error"
+          colorPalette="danger"
+          className="mb-2 d-flex align-items-center justify-content-between"
+        >
+          <span>메시지 로딩 중 오류가 발생했습니다.</span>
+          <Button size="sm" onClick={retryMessageLoad} variant="ghost">
+            다시 로드
+          </Button>
+        </Callout.Root>
+      );
+    }
+
     return (
-      <ChatMessages
-        messages={messages}
-        streamingMessages={streamingMessages}
-        currentUser={currentUser}
-        room={room}
-        onReactionAdd={handleReactionAdd}
-        onReactionRemove={handleReactionRemove}
-        loadingMessages={loadingMessages}
-        hasMoreMessages={hasMoreMessages}
-        onLoadMore={handleLoadMore}
-        socketRef={socketRef}
-      />
+      <>
+        {banners.length > 0 && (
+          <VStack className="p-3">{banners}</VStack>
+        )}
+        <ChatMessages
+          messages={messages}
+          streamingMessages={streamingMessages}
+          currentUser={currentUser}
+          room={room}
+          onReactionAdd={handleReactionAdd}
+          onReactionRemove={handleReactionRemove}
+          loadingMessages={loadingMessages}
+          hasMoreMessages={hasMoreMessages}
+          onLoadMore={handleLoadMore}
+          socketRef={socketRef}
+        />
+      </>
     );
   };
 
-  if (loading || !room) {
+  if (shouldShowLoadingState) {
     return renderLoadingState();
   }
 
-  if (error) {
+  if (error && !cacheHydrated) {
     return renderErrorState();
   }
 
   return (
     <VStack
       gap="$0"
-      // width="100%"
-      // maxWidth="1200px"
-      height="calc(100vh - 80px"
+      height="calc(100vh - 80px)"
       margin="0 auto"
       style={{
         backgroundColor: "var(--vapor-color-surface-normal)",
@@ -204,7 +249,7 @@ const ChatPage = () => {
         messageInputRef={messageInputRef}
         filePreview={filePreview}
         disabled={connectionStatus !== "connected"}
-        uploading={false}
+        uploading={uploading} // [수정] 실제 uploading 상태 전달
         showEmojiPicker={showEmojiPicker}
         showMentionList={showMentionList}
         mentionFilter={mentionFilter}
