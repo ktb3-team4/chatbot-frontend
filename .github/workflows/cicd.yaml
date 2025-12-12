@@ -39,21 +39,53 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get EC2 instance IPs
+        id: get-instances
+        run: |
+          INSTANCE_IPS=$(aws ec2 describe-instances \
+            --filters \
+              "Name=tag:Role,Values=frontend" \
+              "Name=instance-state-name,Values=running" \
+            --query 'Reservations[*].Instances[*].PublicIpAddress' \
+            --output json | jq -r '.[] | .[]' | tr '\n' ' ')
+
+          if [ -z "$INSTANCE_IPS" ]; then
+            echo "No EC2 instances found."
+            exit 1
+          fi
+
+          echo "INSTANCE_IPS=$INSTANCE_IPS" >> $GITHUB_OUTPUT
+          echo "Found IPs: $INSTANCE_IPS"
+
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Add known_hosts
+      - name: Deploy to EC2 instances
+        env:
+          INSTANCE_IPS: ${{ steps.get-instances.outputs.INSTANCE_IPS }}
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          for IP in $INSTANCE_IPS; do
+            echo ">>> Deploying to $IP"
 
+            # Add to known_hosts
+            ssh-keyscan -H $IP >> ~/.ssh/known_hosts
 
-      - name: Deploy to EC2
-        run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash -s' <<EOF
+            # Deploy
+            ssh ${{ secrets.SERVER_USER }}@$IP 'bash -s' <<EOF
           set -e
 
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
@@ -76,5 +108,8 @@ jobs:
           echo ">>> docker compose up -d"
           docker compose up -d
 
-          echo ">>> Deployed!"
+          echo ">>> Deployed successfully!"
           EOF
+
+            echo ">>> Deployment to $IP completed"
+          done
