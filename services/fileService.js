@@ -15,18 +15,7 @@ const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
 
 class FileService {
   constructor() {
-    // 빌드 시에는 S3 클라이언트를 초기화하지 않음
-    if (typeof window !== 'undefined' || process.env.NODE_ENV === 'production') {
-      this.s3Client = S3_CONFIG.region ? new S3Client({
-        region: S3_CONFIG.region,
-        credentials: S3_CONFIG.credentials,
-        requestChecksumCalculation: "WHEN_REQUIRED",
-        responseChecksumValidation: "WHEN_REQUIRED",
-      }) : null;
-    } else {
-      this.s3Client = null;
-    }
-
+    this._s3Client = null;
     this.bucket = S3_CONFIG.bucket;
     this.uploadLimit = 50 * 1024 * 1024; // 50MB
 
@@ -44,6 +33,19 @@ class FileService {
         name: "PDF 문서",
       },
     };
+  }
+
+  // S3 클라이언트 지연 초기화
+  get s3Client() {
+    if (!this._s3Client && S3_CONFIG.region) {
+      this._s3Client = new S3Client({
+        region: S3_CONFIG.region,
+        credentials: S3_CONFIG.credentials,
+        requestChecksumCalculation: "WHEN_REQUIRED",
+        responseChecksumValidation: "WHEN_REQUIRED",
+      });
+    }
+    return this._s3Client;
   }
 
   // 파일 유효성 검사
