@@ -2,15 +2,13 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import axiosInstance from "./axios";
 import { Toast } from "../components/Toast";
 
-const CLOUDFRONT_DOMAIN = "d1omn37u3cfyro.cloudfront.net";
-
 const S3_CONFIG = {
-  region: "ap-northeast-2",
+  region: process.env.NEXT_PUBLIC_AWS_REGION,
   credentials: {
-    accessKeyId: "AKIAZFMXD6XC4SG3QJGE",
-    secretAccessKey: "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",
+    accessKeyId: process.env.NEXT_PUBLIC_ACCESSKEY,
+    secretAccessKey: process.env.NEXT_PUBLIC_SECRETKEY,
   },
-  bucket: "ktb-004-chat-s3",
+  bucket: process.env.NEXT_PUBLIC_BUCKET,
 };
 
 class FileService {
@@ -145,8 +143,11 @@ class FileService {
     const hasLeadingSlash = normalized.startsWith("/");
     const cleanPath = normalized.replace(/^\/+/, "");
 
-    // /images/... 형태도 CloudFront로 처리
-    if (hasLeadingSlash && cleanPath.startsWith("images/")) {
+    // [수정됨] images 뿐만 아니라 profiles 경로도 CloudFront로 처리
+    if (
+      hasLeadingSlash &&
+      (cleanPath.startsWith("images/") || cleanPath.startsWith("profiles/"))
+    ) {
       return `https://${CLOUDFRONT_DOMAIN}/${cleanPath}`;
     }
 

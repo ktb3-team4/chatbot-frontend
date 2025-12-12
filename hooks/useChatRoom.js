@@ -18,6 +18,7 @@ const CLEANUP_REASONS = {
 };
 
 export const useChatRoom = () => {
+  const MESSAGE_PAGE_SIZE = 30;
   const router = useRouter();
   const { user: authUser, logout } = useAuth();
   const [room, setRoom] = useState(null);
@@ -30,6 +31,7 @@ export const useChatRoom = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [cacheHydrated, setCacheHydrated] = useState(false);
 
   // Refs
   const messageInputRef = useRef(null);
@@ -46,6 +48,9 @@ export const useChatRoom = () => {
   const initialLoadCompletedRef = useRef(false);
   const processedMessageIds = useRef(new Set());
   const loadMoreTimeoutRef = useRef(null);
+  const chatCacheKey = useMemo(() => {
+    return router.query.room ? `chat-room-cache:${router.query.room}` : null;
+  }, [router.query.room]);
 
   // Socket handling setup
   const {
@@ -157,6 +162,65 @@ export const useChatRoom = () => {
   const { handleReactionAdd, handleReactionRemove, handleReactionUpdate } =
     useReactionHandling(socketRef, currentUser, messages, setMessages);
 
+  // 로컬 캐시 복원: 새로고침 시 이전 메시지/방 정보 즉시 표시
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    processedMessageIds.current.clear();
+
+    if (!chatCacheKey) {
+      setCacheHydrated(false);
+      return;
+    }
+
+    try {
+      const cached = localStorage.getItem(chatCacheKey);
+      if (!cached) {
+        setCacheHydrated(false);
+        return;
+      }
+
+      const parsed = JSON.parse(cached);
+      if (parsed?.room) setRoom(parsed.room);
+      if (Array.isArray(parsed?.messages)) {
+        setMessages(parsed.messages);
+        setHasMoreMessages(
+          typeof parsed.hasMoreMessages === "boolean"
+            ? parsed.hasMoreMessages
+            : true
+        );
+
+        // 중복 메시지 방지를 위해 캐시된 메시지 ID를 기록
+        processedMessageIds.current.clear();
+        parsed.messages.forEach((msg) => {
+          if (msg?._id) processedMessageIds.current.add(msg._id);
+        });
+      }
+
+      setCacheHydrated(true);
+    } catch (error) {
+      console.warn("Failed to hydrate chat cache:", error);
+      setCacheHydrated(false);
+    }
+  }, [chatCacheKey, setRoom, setMessages, setHasMoreMessages]);
+
+  // 로컬 캐시에 현재 채팅 상태 저장
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!chatCacheKey) return;
+
+    try {
+      const payload = {
+        room,
+        messages,
+        hasMoreMessages,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(chatCacheKey, JSON.stringify(payload));
+    } catch (error) {
+      console.warn("Failed to persist chat cache:", error);
+    }
+  }, [chatCacheKey, room, messages, hasMoreMessages]);
+
   const processMessages = useCallback(
     (loadedMessages, hasMore, isInitialLoad = false) => {
       if (!Array.isArray(loadedMessages))
@@ -250,7 +314,13 @@ export const useChatRoom = () => {
           throw new Error("Invalid response format");
         const { messages: loadedMessages = [], hasMore } = response;
         const isInitialLoad = messages.length === 0;
-        processMessages(loadedMessages, hasMore, isInitialLoad);
+        // hasMore가 명시되지 않은 경우 페이지 크기 미만이면 더 로드할 것이 없다고 판단
+        const nextHasMore =
+          typeof hasMore === "boolean"
+            ? hasMore
+            : loadedMessages.length >= MESSAGE_PAGE_SIZE;
+
+        processMessages(loadedMessages, nextHasMore, isInitialLoad);
         setLoadingMessages(false);
       } catch (error) {
         setLoadingMessages(false);
@@ -519,6 +589,7 @@ export const useChatRoom = () => {
     setMentionIndex,
     setError,
     connectionStatus: getConnectionState(),
+    cacheHydrated,
     messageLoadError,
     retryMessageLoad: useCallback(() => {
       if (mountedRef.current) {
