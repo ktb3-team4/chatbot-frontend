@@ -15,12 +15,17 @@ const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
 
 class FileService {
   constructor() {
-    this.s3Client = new S3Client({
-      region: S3_CONFIG.region,
-      credentials: S3_CONFIG.credentials,
-      requestChecksumCalculation: "WHEN_REQUIRED",
-      responseChecksumValidation: "WHEN_REQUIRED",
-    });
+    // 빌드 시에는 S3 클라이언트를 초기화하지 않음
+    if (typeof window !== 'undefined' || process.env.NODE_ENV === 'production') {
+      this.s3Client = S3_CONFIG.region ? new S3Client({
+        region: S3_CONFIG.region,
+        credentials: S3_CONFIG.credentials,
+        requestChecksumCalculation: "WHEN_REQUIRED",
+        responseChecksumValidation: "WHEN_REQUIRED",
+      }) : null;
+    } else {
+      this.s3Client = null;
+    }
 
     this.bucket = S3_CONFIG.bucket;
     this.uploadLimit = 50 * 1024 * 1024; // 50MB
@@ -76,6 +81,13 @@ class FileService {
 
   // S3 직접 업로드
   async uploadFile(file, onProgress) {
+    if (!this.s3Client) {
+      return {
+        success: false,
+        message: "S3 클라이언트가 초기화되지 않았습니다.",
+      };
+    }
+
     const validationResult = await this.validateFile(file);
     if (!validationResult.success) {
       return validationResult;
