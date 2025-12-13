@@ -2,13 +2,15 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import axiosInstance from "./axios";
 import { Toast } from "../components/Toast";
 
+const CLOUDFRONT_DOMAIN = "d1omn37u3cfyro.cloudfront.net";
+
 const S3_CONFIG = {
   region: process.env.NEXT_PUBLIC_AWS_REGION,
   credentials: {
-    accessKeyId: process.env.NEXT_PUBLIC_ACCESSKEY,
-    secretAccessKey: process.env.NEXT_PUBLIC_SECRETKEY,
+    accessKeyId: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
   },
-  bucket: process.env.NEXT_PUBLIC_BUCKET,
+  bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET, 
 };
 
 class FileService {
