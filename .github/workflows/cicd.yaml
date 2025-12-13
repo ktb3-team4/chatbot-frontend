@@ -9,6 +9,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
       - feat/env
 
 env:
@@ -32,7 +33,7 @@ jobs:
         id: set-matrix
         run: |
           SERVERS=$(aws ec2 describe-instances \
-            --filters "Name=tag:role,Values=frontend" "Name=instance-state-name,Values=running" \
+            --filters "Name=tag:Role,Values=frontend" "Name=instance-state-name,Values=running" \
             --query 'Reservations[*].Instances[*].[PublicIpAddress]' \
             --output json | jq -c 'flatten | map(select(. != null))')
           echo "Discovered servers: $SERVERS"
