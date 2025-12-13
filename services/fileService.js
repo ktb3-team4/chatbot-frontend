@@ -1,18 +1,12 @@
 import axiosInstance from "./axios";
 import { Toast } from "../components/Toast";
 
-const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
-
 const S3_CONFIG = {
   region: process.env.NEXT_PUBLIC_AWS_REGION,
   bucket: process.env.NEXT_PUBLIC_BUCKET,
-
-  credentials: {
-    accessKeyId: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
-  },
-  bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET,
 };
+
+const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
 
 class FileService {
   constructor() {
@@ -68,7 +62,6 @@ class FileService {
     return { success: true };
   }
 
-  // S3 직접 업로드 (퍼블릭 버킷 - 인증 불필요)
   async uploadFile(file, onProgress) {
     const validationResult = await this.validateFile(file);
     if (!validationResult.success) {
@@ -80,7 +73,6 @@ class FileService {
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
       const key = `images/${timestamp}_${safeFileName}`;
 
-      // S3 직접 업로드 (AWS SDK 없이 fetch 사용)
       const region = S3_CONFIG.region;
       const bucket = this.bucket;
       const s3Url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;

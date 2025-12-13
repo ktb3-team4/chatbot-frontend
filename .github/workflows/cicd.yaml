@@ -88,17 +88,6 @@ jobs:
           DOCKER_TOKEN=${{ secrets.DOCKER_TOKEN }}
           IMAGE_NAME=\$DOCKER_USERNAME/front:latest
 
-          echo ">>> Create .test file with environment variables"
-          cat > /home/${{ secrets.SERVER_USER }}/app/.test <<ENVFILE
-          NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
-          NEXT_PUBLIC_AWS_REGION=${{ secrets.AWS_REGION }}
-          NEXT_PUBLIC_ACCESSKEY=${{ secrets.AWS_ACCESS_KEY_ID }}
-          NEXT_PUBLIC_SECRETKEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          NEXT_PUBLIC_BUCKET=${{ secrets.NEXT_PUBLIC_BUCKET }}
-          NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${{ secrets.CLOUDFRONT_DOMAIN }}
-          ENVFILE
-
           echo ">>> Docker Hub login"
           echo "\$DOCKER_TOKEN" | docker login -u "\$DOCKER_USERNAME" --password-stdin
           
