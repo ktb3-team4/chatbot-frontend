@@ -54,30 +54,29 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-
       - name: Deploy to EC2
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash -s' <<EOF
           set -e
-
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           DOCKER_TOKEN=${{ secrets.DOCKER_TOKEN }}
           IMAGE_NAME=\$DOCKER_USERNAME/front:latest
-
+          
           echo ">>> Docker Hub login"
           echo "\$DOCKER_TOKEN" | docker login -u "\$DOCKER_USERNAME" --password-stdin
-
+          
           echo ">>> Pull latest image: \$IMAGE_NAME"
           docker pull "\$IMAGE_NAME"
-
+          
           echo ">>> Move to app directory"
           mkdir -p /home/${{ secrets.SERVER_USER }}/app
-
+          cd /home/${{ secrets.SERVER_USER }}/app
+          
           echo ">>> docker compose down (if exists)"
-          docker compose /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml down || true
-
+          docker compose down || true
+          
           echo ">>> docker compose up -d"
-          docker compose /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml up -d
-
+          docker compose up -d
+          
           echo ">>> Deployed!"
           EOF
