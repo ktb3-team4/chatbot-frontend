@@ -16,6 +16,28 @@ env:
   IMAGE_TAG: latest
 
 jobs:
+  discover-servers:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get frontend servers from AWS
+        id: set-matrix
+        run: |
+          SERVERS=$(aws ec2 describe-instances \
+            --filters "Name=tag:role,Values=frontend" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[*].Instances[*].[PublicIpAddress]' \
+            --output json | jq -c 'flatten | map(select(. != null))')
+          echo "Discovered servers: $SERVERS"
+          echo "matrix={\"server\":$SERVERS}" >> $GITHUB_OUTPUT
+
   build-and-push:
     runs-on: ubuntu-latest
     steps:
@@ -33,17 +55,18 @@ jobs:
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             --build-arg NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }} \
             --build-arg NEXT_PUBLIC_AWS_REGION=${{ secrets.AWS_REGION }} \
-            --build-arg NEXT_PUBLIC_AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --build-arg NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            --build-arg NEXT_PUBLIC_AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }} \
+            --build-arg NEXT_PUBLIC_BUCKET=${{ secrets.NEXT_PUBLIC_BUCKET }} \
             --build-arg NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${{ secrets.CLOUDFRONT_DOMAIN }} \
             -t $IMAGE_NAME:$IMAGE_TAG .
           docker push $IMAGE_NAME:$IMAGE_TAG
 
   deploy:
-    needs: build-and-push
+    needs: [build-and-push, discover-servers]
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
+    strategy:
+      matrix: ${{ fromJson(needs.discover-servers.outputs.matrix) }}
+      fail-fast: false  # 한 서버 실패해도 다른 서버 계속 배포
     steps:
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -53,16 +76,28 @@ jobs:
       - name: Add known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ matrix.server }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to EC2
+      - name: Deploy to EC2 (${{ matrix.server }})
+
         run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash -s' <<EOF
+          ssh ${{ secrets.SERVER_USER }}@${{ matrix.server }} 'bash -s' <<EOF
           set -e
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           DOCKER_TOKEN=${{ secrets.DOCKER_TOKEN }}
           IMAGE_NAME=\$DOCKER_USERNAME/front:latest
-          
+
+          echo ">>> Create .test file with environment variables"
+          cat > /home/${{ secrets.SERVER_USER }}/app/.test <<ENVFILE
+          NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
+          NEXT_PUBLIC_AWS_REGION=${{ secrets.AWS_REGION }}
+          NEXT_PUBLIC_ACCESSKEY=${{ secrets.AWS_ACCESS_KEY_ID }}
+          NEXT_PUBLIC_SECRETKEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          NEXT_PUBLIC_BUCKET=${{ secrets.NEXT_PUBLIC_BUCKET }}
+          NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${{ secrets.CLOUDFRONT_DOMAIN }}
+          ENVFILE
+
           echo ">>> Docker Hub login"
           echo "\$DOCKER_TOKEN" | docker login -u "\$DOCKER_USERNAME" --password-stdin
           
@@ -74,10 +109,10 @@ jobs:
           cd /home/${{ secrets.SERVER_USER }}/app
           
           echo ">>> docker compose down (if exists)"
-          docker compose down || true
-          
+          docker compose -f /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml down || true
+
           echo ">>> docker compose up -d"
-          docker compose up -d
-          
+          docker compose -f /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml up -d
+
           echo ">>> Deployed!"
           EOF
