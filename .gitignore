@@ -1,0 +1,80 @@
+# ===== Environment Variables =====
+.env
+.env.*
+.env.local
+
+# ===== Next.js =====
+.next/
+
+# ===== Build Outputs =====
+build/
+dist/
+
+# ===== Package Manager Lock Files =====
+yarn.lock
+pnpm-lock.yaml
+
+# ===== Node =====
+node_modules/
+bower_components
+
+# ===== Logs =====
+*.log
+logs
+**/*.backup.*
+**/*.back.*
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# macOS iCloud
+*.icloud
+
+# React
+.DS_*
+*.sublime*
+psd
+thumb
+sketch
+
+# ===== VS Code =====
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History
+.history/
+.ionide
+
+# VS Code Extensions
+*.vsix
+
+# ===== Additional =====
+# End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,macos,react

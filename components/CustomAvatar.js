@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, forwardRef } from 'react';
 import { Avatar } from '@vapor-ui/core';
 import { generateColorFromEmail, getContrastTextColor } from '@/utils/colorUtils';
+import fileService from '@/services/fileService';
 
 /**
  * CustomAvatar 컴포넌트
@@ -38,17 +39,9 @@ const CustomAvatar = forwardRef(({
 
   // 프로필 이미지 URL 생성 (memoized)
   const getImageUrl = useCallback((imagePath) => {
-    // src prop이 직접 제공된 경우
     if (src) return src;
-    
-    if (!imagePath) return null;
-    
-    // 이미 전체 URL인 경우
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    // API URL과 결합 필요한 경우
-    return `${process.env.NEXT_PUBLIC_API_URL}${imagePath}`;
+    const resolved = fileService.getFileUrl(imagePath);
+    return resolved || null;
   }, [src]);
 
   // persistent 모드: 프로필 이미지 URL 처리
