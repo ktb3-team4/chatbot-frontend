@@ -1,12 +1,18 @@
 import axiosInstance from "./axios";
 import { Toast } from "../components/Toast";
 
+const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
+
 const S3_CONFIG = {
   region: process.env.NEXT_PUBLIC_AWS_REGION,
   bucket: process.env.NEXT_PUBLIC_BUCKET,
-};
 
-const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
+  credentials: {
+    accessKeyId: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
+  },
+  bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET,
+};
 
 class FileService {
   constructor() {
@@ -16,7 +22,7 @@ class FileService {
     this.allowedTypes = {
       image: {
         extensions: [".jpg", ".jpeg", ".png", ".gif", ".webp"],
-        mimeTypes: ["image/jpeg", "image/png", "imagegif", "image/webp"],
+        mimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
         maxSize: 10 * 1024 * 1024,
         name: "이미지",
       },

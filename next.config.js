@@ -1,6 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false, // 에러 처리 문제 해결을 위해 일시적으로 비활성화
+  env: {
+    BUILD_TIME: new Date().toLocaleString("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+  },
   transpilePackages: ["@vapor-ui/core", "@vapor-ui/icons"],
   // Docker 빌드를 위한 standalone 출력 모드 (개발 환경에는 영향 없음)
   output: "standalone",
