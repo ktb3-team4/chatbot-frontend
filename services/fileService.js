@@ -13,15 +13,11 @@ const S3_CONFIG = {
   bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET, 
 };
 
+const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
+
 class FileService {
   constructor() {
-    this.s3Client = new S3Client({
-      region: S3_CONFIG.region,
-      credentials: S3_CONFIG.credentials,
-      requestChecksumCalculation: "WHEN_REQUIRED",
-      responseChecksumValidation: "WHEN_REQUIRED",
-    });
-
+    this._s3Client = null;
     this.bucket = S3_CONFIG.bucket;
     this.uploadLimit = 50 * 1024 * 1024; // 50MB
 
@@ -39,6 +35,19 @@ class FileService {
         name: "PDF 문서",
       },
     };
+  }
+
+  // S3 클라이언트 지연 초기화
+  get s3Client() {
+    if (!this._s3Client && S3_CONFIG.region) {
+      this._s3Client = new S3Client({
+        region: S3_CONFIG.region,
+        credentials: S3_CONFIG.credentials,
+        requestChecksumCalculation: "WHEN_REQUIRED",
+        responseChecksumValidation: "WHEN_REQUIRED",
+      });
+    }
+    return this._s3Client;
   }
 
   // 파일 유효성 검사
@@ -76,6 +85,13 @@ class FileService {
 
   // S3 직접 업로드
   async uploadFile(file, onProgress) {
+    if (!this.s3Client) {
+      return {
+        success: false,
+        message: "S3 클라이언트가 초기화되지 않았습니다.",
+      };
+    }
+
     const validationResult = await this.validateFile(file);
     if (!validationResult.success) {
       return validationResult;
