@@ -9,7 +9,6 @@ on:
   pull_request:
     branches:
       - main
-      - develop
       - feat/env
 
 env:
@@ -28,17 +27,33 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
+      - name: echo
+        run: |
+          echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}"
+          echo "NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }}"
+          echo "NEXT_PUBLIC_AWS_REGION=${{ secrets.AWS_REGION }}"
+          echo "NEXT_PUBLIC_ACCESSKEY=${{ secrets.AWS_ACCESS_KEY_ID }}"
+          echo "NEXT_PUBLIC_SECRETKEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          echo "NEXT_PUBLIC_BUCKET=${{ secrets.NEXT_PUBLIC_BUCKET }}"
+          echo "NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${{ secrets.CLOUDFRONT_DOMAIN }}"
+
       - name: Build and Push Image
         run: |
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             --build-arg NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }} \
+            --build-arg NEXT_PUBLIC_AWS_REGION=${{ secrets.AWS_REGION }} \
+            --build-arg NEXT_PUBLIC_ACCESSKEY=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --build-arg NEXT_PUBLIC_SECRETKEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --build-arg NEXT_PUBLIC_BUCKET=${{ secrets.NEXT_PUBLIC_BUCKET }} \
+            --build-arg NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${{ secrets.CLOUDFRONT_DOMAIN }} \
             -t $IMAGE_NAME:$IMAGE_TAG .
           docker push $IMAGE_NAME:$IMAGE_TAG
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     steps:
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -68,13 +83,12 @@ jobs:
 
           echo ">>> Move to app directory"
           mkdir -p /home/${{ secrets.SERVER_USER }}/app
-          cd /home/${{ secrets.SERVER_USER }}/app
 
           echo ">>> docker compose down (if exists)"
-          docker compose down || true
+          docker compose -f /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml down || true
 
           echo ">>> docker compose up -d"
-          docker compose up -d
+          docker compose -f /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml up -d
 
           echo ">>> Deployed!"
           EOF
