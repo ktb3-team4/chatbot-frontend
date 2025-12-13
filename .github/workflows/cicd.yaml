@@ -75,10 +75,10 @@ jobs:
           mkdir -p /home/${{ secrets.SERVER_USER }}/app
 
           echo ">>> docker compose down (if exists)"
-          docker compose /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml down || true
+          docker compose -f /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml down || true
 
           echo ">>> docker compose up -d"
-          docker compose /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml up -d
+          docker compose -f /home/${{ secrets.SERVER_USER }}/app/docker-compose.yml up -d
 
           echo ">>> Deployed!"
           EOF

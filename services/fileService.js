@@ -1,13 +1,8 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import axiosInstance from "./axios";
 import { Toast } from "../components/Toast";
 
 const S3_CONFIG = {
   region: process.env.NEXT_PUBLIC_AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.NEXT_PUBLIC_ACCESSKEY,
-    secretAccessKey: process.env.NEXT_PUBLIC_SECRETKEY,
-  },
   bucket: process.env.NEXT_PUBLIC_BUCKET,
 };
 
@@ -15,7 +10,6 @@ const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
 
 class FileService {
   constructor() {
-    this._s3Client = null;
     this.bucket = S3_CONFIG.bucket;
     this.uploadLimit = 50 * 1024 * 1024; // 50MB
 
@@ -33,19 +27,6 @@ class FileService {
         name: "PDF 문서",
       },
     };
-  }
-
-  // S3 클라이언트 지연 초기화
-  get s3Client() {
-    if (!this._s3Client && S3_CONFIG.region) {
-      this._s3Client = new S3Client({
-        region: S3_CONFIG.region,
-        credentials: S3_CONFIG.credentials,
-        requestChecksumCalculation: "WHEN_REQUIRED",
-        responseChecksumValidation: "WHEN_REQUIRED",
-      });
-    }
-    return this._s3Client;
   }
 
   // 파일 유효성 검사
@@ -81,15 +62,8 @@ class FileService {
     return { success: true };
   }
 
-  // S3 직접 업로드
+  // S3 직접 업로드 (퍼블릭 버킷 - 인증 불필요)
   async uploadFile(file, onProgress) {
-    if (!this.s3Client) {
-      return {
-        success: false,
-        message: "S3 클라이언트가 초기화되지 않았습니다.",
-      };
-    }
-
     const validationResult = await this.validateFile(file);
     if (!validationResult.success) {
       return validationResult;
@@ -100,16 +74,25 @@ class FileService {
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
       const key = `images/${timestamp}_${safeFileName}`;
 
-      const command = new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file,
-        ContentType: file.type,
+      // S3 직접 업로드 (AWS SDK 없이 fetch 사용)
+      const region = S3_CONFIG.region;
+      const bucket = this.bucket;
+      const s3Url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+
+      if (onProgress) onProgress(10);
+
+      const response = await fetch(s3Url, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
       });
 
-      // 진행률 시뮬레이션 (AWS SDK v3 기본 미지원)
-      if (onProgress) onProgress(10);
-      await this.s3Client.send(command);
+      if (!response.ok) {
+        throw new Error(`S3 업로드 실패: ${response.status} ${response.statusText}`);
+      }
+
       if (onProgress) onProgress(100);
 
       // CloudFront URL 생성
