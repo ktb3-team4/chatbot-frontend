@@ -27,6 +27,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
+      - name: echo
+        run: |
+          echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}"
+          echo "NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL }}"
+          echo "NEXT_PUBLIC_AWS_REGION=${{ secrets.AWS_REGION }}"
+          echo "NEXT_PUBLIC_ACCESSKEY=${{ secrets.AWS_ACCESS_KEY_ID }}"
+          echo "NEXT_PUBLIC_SECRETKEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          echo "NEXT_PUBLIC_BUCKET=${{ secrets.NEXT_PUBLIC_BUCKET }}"
+          echo "NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${{ secrets.CLOUDFRONT_DOMAIN }}"
+
       - name: Build and Push Image
         run: |
           docker build \
