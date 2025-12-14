@@ -277,10 +277,11 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
 
-      if (data.success && data.token) {
+      if (data.success && data.token && data.sessionId) {
         const updatedUser = {
           ...user,
           token: data.token,
+          sessionId: data.sessionId,
           lastActivity: Date.now(),
         };
         saveUser(updatedUser);
