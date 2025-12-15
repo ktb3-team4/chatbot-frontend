@@ -181,6 +181,16 @@ export const useChatRoom = () => {
       }
 
       const parsed = JSON.parse(cached);
+
+      // 캐시된 room의 _id와 현재 URL의 roomId가 일치하는지 검증
+      const urlRoomId = router.query.room;
+      if (parsed?.room?._id && parsed.room._id !== urlRoomId) {
+        console.warn(`Cached room ID mismatch: cached=${parsed.room._id}, url=${urlRoomId}`);
+        localStorage.removeItem(chatCacheKey);
+        setCacheHydrated(false);
+        return;
+      }
+
       if (parsed?.room) setRoom(parsed.room);
       if (Array.isArray(parsed?.messages)) {
         setMessages(parsed.messages);
@@ -208,6 +218,12 @@ export const useChatRoom = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!chatCacheKey) return;
+
+    // room의 _id와 chatCacheKey의 roomId가 일치하는지 확인
+    // 일치하지 않으면 다른 방의 데이터이므로 저장하지 않음
+    if (room && room._id && !chatCacheKey.includes(room._id)) {
+      return;
+    }
 
     try {
       const payload = {

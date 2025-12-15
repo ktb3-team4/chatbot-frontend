@@ -184,9 +184,11 @@ export const useRoomHandling = (
         throw new Error('채팅방 정보가 올바르지 않습니다.');
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}`,
-        {
+      // API URL을 안전하게 구성 (빈 문자열이면 상대 경로로, 있으면 절대 경로로)
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      const apiUrl = apiBase ? `${apiBase}/api/rooms/${roomId}` : `/api/rooms/${roomId}`;
+
+      const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',

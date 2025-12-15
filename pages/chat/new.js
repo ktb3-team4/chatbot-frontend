@@ -28,7 +28,10 @@ function NewChatRoom() {
 
   const joinRoom = async (roomId, password) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}/join`, {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      const apiUrl = apiBase ? `${apiBase}/api/rooms/${roomId}/join` : `/api/rooms/${roomId}/join`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +75,10 @@ function NewChatRoom() {
       setLoading(true);
       setError('');
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms`, {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+      const apiUrl = apiBase ? `${apiBase}/api/rooms` : `/api/rooms`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
