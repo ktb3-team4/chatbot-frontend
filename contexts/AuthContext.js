@@ -23,7 +23,7 @@ export const useAuth = () => {
   return context;
 };
 
-const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 2 hours
 const TOKEN_VERIFICATION_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -277,7 +277,7 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
 
-      if (data.success && data.token) {
+      if (data.success && data.token && data.sessionId) {
         const updatedUser = {
           ...user,
           token: data.token,

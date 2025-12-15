@@ -35,18 +35,15 @@ const FileMessage = ({
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const messageDomRef = useRef(null);
+  const hasFile = !!msg?.file;
 
   useEffect(() => {
-    if (msg?.file) {
+    if (hasFile) {
       // S3 URL은 토큰이 필요 없으므로 file 객체만 전달
       const url = fileService.getPreviewUrl(msg.file);
       setPreviewUrl(url);
     }
-  }, [msg?.file]); // user.token 등은 의존성에서 제거 가능
-
-  if (!msg?.file) {
-    return null;
-  }
+  }, [hasFile, msg?.file]); // user.token 등은 의존성에서 제거 가능
 
   const formattedTime = new Date(msg.timestamp)
     .toLocaleString("ko-KR", {
@@ -370,8 +367,14 @@ const FileMessage = ({
           `}
           >
             {error && <div>{error}</div>}
-            {!error && renderFilePreview()}
-            {!error && msg.content && (
+            {hasFile ? (
+              renderFilePreview()
+            ) : (
+              <div className="text-sm text-gray-300" data-testid="file-message-fallback">
+                파일 정보를 불러올 수 없습니다.
+              </div>
+            )}
+            {msg.content && (
               <div className="mt-3 text-base leading-relaxed">
                 <MessageContent content={msg.content} />
               </div>
