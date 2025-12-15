@@ -138,19 +138,39 @@ export const useRoomHandling = (
           }
         };
 
-        const handleError = (error) => {
+        const handleError = async (error) => {
           if (!socketConnected) {
             socketConnected = true;
             clearTimeout(connectionTimeout);
 
             const authErrorData = error?.data;
-            if (authErrorData && authErrorData.code === "SESSION_EXPIRED") {
-              reject({
-                message:
-                  authErrorData.message ||
-                  "세션이 만료되었습니다. 다시 로그인해주세요.",
-                code: "SESSION_EXPIRED",
-              });
+            const isSessionError =
+              authErrorData &&
+              (authErrorData.code === "SESSION_EXPIRED" ||
+                authErrorData.code === "INVALID_SESSION");
+
+            if (isSessionError) {
+              try {
+                const refreshed = await handleSessionError();
+                if (refreshed && mountedRef.current) {
+                  // 새 토큰/세션으로 다시 연결 시도
+                  const retried = await setupSocket();
+                  resolve(retried);
+                  return;
+                }
+                reject(
+                  new Error(
+                    authErrorData.message ||
+                      "세션이 만료되었습니다. 다시 로그인해주세요."
+                  )
+                );
+              } catch (refreshError) {
+                reject(
+                  refreshError instanceof Error
+                    ? refreshError
+                    : new Error("세션이 만료되었습니다. 다시 로그인해주세요.")
+                );
+              }
             } else {
               reject(error);
             }
@@ -303,7 +323,8 @@ export const useRoomHandling = (
               return;
             }
 
-            processMessages(response.messages, response.hasMore, true);
+            // 메시지 처리는 공용 이벤트 리스너(handlePreviousMessages)에서 수행하므로
+            // 여기서는 성공 여부만 판단하고 리졸브한다.
             resolve(response);
           };
 
@@ -355,7 +376,7 @@ export const useRoomHandling = (
         throw error;
       }
     },
-    [socketRef, processMessages, setupSocket]
+    [socketRef, setupSocket]
   );
 
   const setupRoom = useCallback(async () => {
