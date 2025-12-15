@@ -435,12 +435,18 @@ export const useChatRoom = () => {
         setupRoom().catch(() => setError("채팅방 연결에 실패했습니다."));
       }
     };
-    const handleDisconnect = () => {
-      if (mountedRef.current) {
+    const handleDisconnect = (reason) => {
+      if (!mountedRef.current) return;
+
+      // 의도적인 disconnect(새로고침, 재연결)는 경고 표시 안 함
+      if (reason === 'io client disconnect' || loading) {
+        setConnectionStatus("connecting");
+      } else {
         setConnectionStatus("disconnected");
-        socketInitializedRef.current = false;
-        setupCompleteRef.current = false;
       }
+
+      socketInitializedRef.current = false;
+      setupCompleteRef.current = false;
     };
     const handleError = () => {
       if (mountedRef.current) {
@@ -465,8 +471,11 @@ export const useChatRoom = () => {
     socketRef.current.on("connect_error", handleError);
     socketRef.current.on("reconnecting", handleReconnecting);
     socketRef.current.on("reconnect", handleReconnectSuccess);
+
+    // 초기 연결 상태: 연결 중이면 connected, 아니면 connecting으로 설정
+    // disconnected는 실제 연결 끊김 이벤트에서만 설정
     setConnectionStatus(
-      socketRef.current.connected ? "connected" : "disconnected"
+      socketRef.current.connected ? "connected" : "connecting"
     );
 
     return () => {
