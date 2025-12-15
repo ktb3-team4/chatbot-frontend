@@ -91,8 +91,10 @@ export const useRoomHandling = (
           userRooms.delete(currentSocket.id);
         }
 
-        currentSocket.disconnect();
+        // disconnect 이벤트가 발생하기 전에 모든 리스너를 제거하여
+        // UI에 불필요한 "연결 끊김" 경고가 표시되지 않도록 함
         currentSocket.removeAllListeners();
+        currentSocket.disconnect();
         socketRef.current = null;
 
         await new Promise(resolve => setTimeout(resolve, 2000));

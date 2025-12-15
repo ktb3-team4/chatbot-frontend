@@ -464,8 +464,11 @@ export const useChatRoom = () => {
     socketRef.current.on("connect_error", handleError);
     socketRef.current.on("reconnecting", handleReconnecting);
     socketRef.current.on("reconnect", handleReconnectSuccess);
+
+    // 초기 연결 상태 설정: 이미 연결되어 있으면 connected, 아니면 connecting으로 설정
+    // disconnected는 실제 연결 끊김 이벤트에서만 설정되도록 함
     setConnectionStatus(
-      socketRef.current.connected ? "connected" : "disconnected"
+      socketRef.current.connected ? "connected" : "connecting"
     );
 
     return () => {
