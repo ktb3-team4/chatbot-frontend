@@ -1,7 +1,7 @@
-import { useRef, useEffect, useCallback } from 'react';
-import socketService from '../services/socket';
-import { useAuth } from '../contexts/AuthContext';
-import { Toast } from '../components/Toast';
+import { useRef, useEffect, useCallback } from "react";
+import socketService from "../services/socket";
+import { useAuth } from "../contexts/AuthContext";
+import { Toast } from "../components/Toast";
 
 export const useRoomHandling = (
   socketRef,
@@ -53,19 +53,18 @@ export const useRoomHandling = (
   const handleSessionError = async () => {
     try {
       if (!user) {
-        throw new Error('No user session found');
+        throw new Error("No user session found");
       }
 
       await refreshToken();
       if (mountedRef.current) {
         return true;
       }
-    } catch (error) {
-    }
+    } catch (error) {}
 
     if (mountedRef.current) {
       await logout();
-      router.replace('/?redirect=' + router.asPath);
+      router.replace("/?redirect=" + router.asPath);
     }
     return false;
   };
@@ -73,7 +72,7 @@ export const useRoomHandling = (
   const setupSocket = useCallback(async () => {
     try {
       if (!user?.token || !user?.sessionId) {
-        throw new Error('Invalid authentication state');
+        throw new Error("Invalid authentication state");
       }
 
       if (socketRef.current?.connected) {
@@ -83,27 +82,31 @@ export const useRoomHandling = (
       if (socketRef.current) {
         const currentSocket = socketRef.current;
 
-        if (userRooms?.get(currentSocket.id)) {
-          await new Promise((resolve) => {
-            currentSocket.emit('leaveRoom', userRooms.get(currentSocket.id));
-            setTimeout(resolve, 1000);
-          });
-          userRooms.delete(currentSocket.id);
+        // userRooms는 userId를 키로 사용해야 함
+        if (userRooms?.get(user.id)) {
+          const roomIdToLeave = userRooms.get(user.id);
+          if (roomIdToLeave) {
+            await new Promise((resolve) => {
+              currentSocket.emit("leaveRoom", roomIdToLeave);
+              setTimeout(resolve, 1000);
+            });
+            userRooms.delete(user.id);
+          }
         }
 
         currentSocket.disconnect();
         currentSocket.removeAllListeners();
         socketRef.current = null;
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
       const socket = await socketService.connect({
         auth: {
           token: user.token,
-          sessionId: user.sessionId
+          sessionId: user.sessionId,
         },
-        transports: ['websocket', 'polling'],
+        transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionAttempts: MAX_SOCKET_RECONNECT_ATTEMPTS,
         reconnectionDelay: 1000,
@@ -112,7 +115,7 @@ export const useRoomHandling = (
         pingTimeout: 10000,
         pingInterval: 8000,
         forceNew: true,
-        autoConnect: true
+        autoConnect: true,
       });
 
       return new Promise((resolve, reject) => {
@@ -120,7 +123,7 @@ export const useRoomHandling = (
         const connectionTimeout = setTimeout(() => {
           if (!socketConnected) {
             cleanup();
-            reject(new Error('Socket connection timeout'));
+            reject(new Error("Socket connection timeout"));
           }
         }, 10000);
 
@@ -128,8 +131,8 @@ export const useRoomHandling = (
           if (!socketConnected) {
             socketConnected = true;
             clearTimeout(connectionTimeout);
-            socket.removeListener('connect_error', handleError);
-            socket.removeListener('error', handleError);
+            socket.removeListener("connect_error", handleError);
+            socket.removeListener("error", handleError);
             socketReconnectAttempts.current = 0;
             resolve(socket);
           }
@@ -139,7 +142,18 @@ export const useRoomHandling = (
           if (!socketConnected) {
             socketConnected = true;
             clearTimeout(connectionTimeout);
-            reject(error);
+
+            const authErrorData = error?.data;
+            if (authErrorData && authErrorData.code === "SESSION_EXPIRED") {
+              reject({
+                message:
+                  authErrorData.message ||
+                  "세션이 만료되었습니다. 다시 로그인해주세요.",
+                code: "SESSION_EXPIRED",
+              });
+            } else {
+              reject(error);
+            }
           }
         };
 
@@ -148,123 +162,153 @@ export const useRoomHandling = (
           return;
         }
 
-        socket.once('connect', handleConnect);
-        socket.once('connect_error', handleError);
-        socket.once('error', handleError);
+        socket.once("connect", handleConnect);
+        socket.once("connect_error", handleError);
+        socket.once("error", handleError);
       });
-
     } catch (error) {
-      if (error.message === 'Invalid authentication state') {
-        router.replace('/?error=auth_required');
+      if (error.message === "Invalid authentication state") {
+        router.replace("/?error=auth_required");
       }
       throw error;
     }
   }, [userRooms, cleanup, router]);
 
-  const fetchRoomData = useCallback(async (roomId) => {
-    try {
-      if (!user?.token || !user?.sessionId) {
-        await handleSessionError();
-        throw new Error('인증 정보가 유효하지 않습니다.');
-      }
-
-      if (!roomId || !mountedRef.current) {
-        throw new Error('채팅방 정보가 올바르지 않습니다.');
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'x-auth-token': user.token,
-            'x-session-id': user.sessionId
-          },
-          credentials: 'include'
+  const fetchRoomData = useCallback(
+    async (roomId) => {
+      try {
+        if (!user?.token || !user?.sessionId) {
+          await handleSessionError();
+          throw new Error("인증 정보가 유효하지 않습니다.");
         }
-      );
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          const refreshed = await handleSessionError();
-          if (refreshed && mountedRef.current) {
-            return fetchRoomData(roomId);
+        if (!roomId || !mountedRef.current) {
+          throw new Error("채팅방 정보가 올바르지 않습니다.");
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "x-auth-token": user.token,
+              "x-session-id": user.sessionId,
+            },
+            credentials: "include",
           }
-          throw new Error('인증이 만료되었습니다.');
+        );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            const refreshed = await handleSessionError();
+            if (refreshed && mountedRef.current) {
+              // 갱신된 토큰으로 다시 시도
+              return fetchRoomData(roomId);
+            }
+            throw new Error("인증이 만료되었습니다.");
+          }
+          throw new Error("채팅방 정보를 불러오는데 실패했습니다.");
         }
-        throw new Error('채팅방 정보를 불러오는데 실패했습니다.');
+
+        const data = await response.json();
+        if (!data.success || !data.data) {
+          throw new Error("채팅방 데이터가 올바르지 않습니다.");
+        }
+
+        return data.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+    [mountedRef, handleSessionError]
+  );
+
+  const joinRoom = useCallback(
+    async (roomId) => {
+      if (!roomId || !mountedRef.current) {
+        throw new Error("잘못된 채팅방 정보입니다.");
       }
 
-      const data = await response.json();
-      if (!data.success || !data.data) {
-        throw new Error('채팅방 데이터가 올바르지 않습니다.');
+      const socket = socketRef.current;
+      if (!socket?.connected) {
+        throw new Error("Socket not connected");
       }
 
-      return data.data;
-    } catch (error) {
-      throw error;
-    }
-  }, [mountedRef, handleSessionError]);
-
-  const joinRoom = useCallback(async (roomId) => {
-    if (!roomId || !mountedRef.current) {
-      throw new Error('잘못된 채팅방 정보입니다.');
-    }
-
-    const socket = socketRef.current;
-    if (!socket?.connected) {
-      throw new Error('Socket not connected');
-    }
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('채팅방 입장 시간이 초과되었습니다.'));
-      }, 10000);
-
-      const handleSuccess = (data) => {
-        clearTimeout(timeout);
-        userRooms?.set(socket.id, roomId);
-        socket.off('joinRoomError', handleError);
-        socket.off('error', handleError);
-        resolve(data);
-      };
-
-      const handleError = (error) => {
-        clearTimeout(timeout);
-        socket.off('joinRoomSuccess', handleSuccess);
-        socket.off('error', handleError);
-        reject(error);
-      };
-
-      socket.once('joinRoomSuccess', handleSuccess);
-      socket.once('joinRoomError', handleError);
-      socket.once('error', handleError);
-
-      socket.emit('joinRoom', roomId);
-    });
-  }, [socketRef, mountedRef, userRooms]);
-
-  const loadInitialMessages = useCallback(async (roomId) => {
-    const loadMessagesWithRetry = async (retryCount = 0) => {
       return new Promise((resolve, reject) => {
-        if (!socketRef.current?.connected) {
-          reject(new Error('Socket not connected'));
-          return;
-        }
+        const timeout = setTimeout(() => {
+          reject(new Error("채팅방 입장 시간이 초과되었습니다."));
+        }, 10000);
 
-        let timeoutId;
-        const cleanup = () => {
-          if (timeoutId) clearTimeout(timeoutId);
-          socketRef.current?.off('previousMessagesLoaded', handleSuccess);
-          socketRef.current?.off('error', handleError);
+        const handleSuccess = (data) => {
+          clearTimeout(timeout);
+          userRooms?.set(socket.id, roomId);
+          socket.off("joinRoomError", handleError);
+          socket.off("error", handleError);
+          resolve(data);
         };
 
-        const handleSuccess = (response) => {
-          cleanup();
-          
-          if (!response || !Array.isArray(response.messages)) {
+        const handleError = (error) => {
+          clearTimeout(timeout);
+          socket.off("joinRoomSuccess", handleSuccess);
+          socket.off("error", handleError);
+
+          const errorMessage =
+            (error && (error.message || error.code || error.reason)) ||
+            (typeof error === "string" ? error : null) ||
+            "채팅방 입장 실패";
+          reject(new Error(errorMessage));
+        };
+
+        socket.once("joinRoomSuccess", handleSuccess);
+        socket.once("joinRoomError", handleError);
+        socket.once("error", handleError);
+
+        socket.emit("joinRoom", roomId);
+      });
+    },
+    [socketRef, mountedRef, userRooms]
+  );
+
+  const loadInitialMessages = useCallback(
+    async (roomId) => {
+      const loadMessagesWithRetry = async (retryCount = 0) => {
+        return new Promise((resolve, reject) => {
+          if (!socketRef.current?.connected) {
+            reject(new Error("Socket not connected"));
+            return;
+          }
+
+          let timeoutId;
+          const cleanup = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            socketRef.current?.off("previousMessagesLoaded", handleSuccess);
+            socketRef.current?.off("error", handleError);
+          };
+
+          const handleSuccess = (response) => {
+            cleanup();
+
+            if (!response || !Array.isArray(response.messages)) {
+              if (retryCount < MAX_MESSAGE_RETRY_ATTEMPTS) {
+                setTimeout(() => {
+                  loadMessagesWithRetry(retryCount + 1)
+                    .then(resolve)
+                    .catch(reject);
+                }, MESSAGE_RETRY_DELAY);
+              } else {
+                reject(new Error("잘못된 메시지 응답 형식입니다."));
+              }
+              return;
+            }
+
+            processMessages(response.messages, response.hasMore, true);
+            resolve(response);
+          };
+
+          const handleError = (error) => {
+            cleanup();
             if (retryCount < MAX_MESSAGE_RETRY_ATTEMPTS) {
               setTimeout(() => {
                 loadMessagesWithRetry(retryCount + 1)
@@ -272,62 +316,47 @@ export const useRoomHandling = (
                   .catch(reject);
               }, MESSAGE_RETRY_DELAY);
             } else {
-              reject(new Error('잘못된 메시지 응답 형식입니다.'));
+              reject(error);
             }
-            return;
-          }
+          };
 
-          processMessages(response.messages, response.hasMore, true);
-          resolve(response);
-        };
+          const handleTimeout = () => {
+            cleanup();
+            if (retryCount < MAX_MESSAGE_RETRY_ATTEMPTS) {
+              setTimeout(() => {
+                loadMessagesWithRetry(retryCount + 1)
+                  .then(resolve)
+                  .catch(reject);
+              }, MESSAGE_RETRY_DELAY);
+            } else {
+              reject(new Error("메시지 로딩 시간이 초과되었습니다."));
+            }
+          };
 
-        const handleError = (error) => {
-          cleanup();
-          if (retryCount < MAX_MESSAGE_RETRY_ATTEMPTS) {
-            setTimeout(() => {
-              loadMessagesWithRetry(retryCount + 1)
-                .then(resolve)
-                .catch(reject);
-            }, MESSAGE_RETRY_DELAY);
-          } else {
-            reject(error);
-          }
-        };
+          socketRef.current.once("previousMessagesLoaded", handleSuccess);
+          socketRef.current.once("error", handleError);
+          timeoutId = setTimeout(handleTimeout, MESSAGE_TIMEOUT);
 
-        const handleTimeout = () => {
-          cleanup();
-          if (retryCount < MAX_MESSAGE_RETRY_ATTEMPTS) {
-            setTimeout(() => {
-              loadMessagesWithRetry(retryCount + 1)
-                .then(resolve)
-                .catch(reject);
-            }, MESSAGE_RETRY_DELAY);
-          } else {
-            reject(new Error('메시지 로딩 시간이 초과되었습니다.'));
-          }
-        };
-
-        socketRef.current.once('previousMessagesLoaded', handleSuccess);
-        socketRef.current.once('error', handleError);
-        timeoutId = setTimeout(handleTimeout, MESSAGE_TIMEOUT);
-
-        socketRef.current.emit('fetchPreviousMessages', {
-          roomId,
-          limit: 30
+          socketRef.current.emit("fetchPreviousMessages", {
+            roomId,
+            limit: 30,
+          });
         });
-      });
-    };
+      };
 
-    try {
-      return await loadMessagesWithRetry();
-    } catch (error) {
-      if (!socketRef.current?.connected) {
-        await setupSocket();
-        return loadMessagesWithRetry();
+      try {
+        return await loadMessagesWithRetry();
+      } catch (error) {
+        if (!socketRef.current?.connected) {
+          Toast.warn("소켓 연결이 끊어져 재연결을 시도합니다.");
+          await setupRoom(); // 전체 연결 및 방 입장까지 재시도
+          return loadMessagesWithRetry();
+        }
+        throw error;
       }
-      throw error;
-    }
-  }, [socketRef, processMessages, setupSocket]);
+    },
+    [socketRef, processMessages, setupSocket]
+  );
 
   const setupRoom = useCallback(async () => {
     if (setupPromiseRef.current) {
@@ -342,21 +371,20 @@ export const useRoomHandling = (
         messageRetryCountRef.current = 0;
 
         // 1. Socket Setup
-        socketRef.current = await setupSocket()
-          .catch((error) => {
-            console.log('Socket setup error:', error);
-            router.push('/_error');
-          });
+        socketRef.current = await setupSocket().catch((error) => {
+          console.log("Socket setup error:", error);
+          router.push("/_error");
+        });
 
         // 2. Fetch Room Data
         const roomData = await fetchRoomData(router.query.room);
-        
+
         // Ensure current user is included in participants for display
         if (currentUser && roomData.participants) {
-          const isUserInParticipants = roomData.participants.some(p =>
-            p._id === currentUser.id || p.id === currentUser.id
+          const isUserInParticipants = roomData.participants.some(
+            (p) => p._id === currentUser.id || p.id === currentUser.id
           );
-          
+
           if (!isUserInParticipants) {
             roomData.participants = [
               ...roomData.participants,
@@ -364,12 +392,12 @@ export const useRoomHandling = (
                 _id: currentUser.id,
                 id: currentUser.id,
                 name: currentUser.name,
-                email: currentUser.email
-              }
+                email: currentUser.email,
+              },
             ];
           }
         }
-        
+
         setRoom(roomData);
 
         // 3. Setup Event Listeners
@@ -388,14 +416,12 @@ export const useRoomHandling = (
           setupCompleteRef.current = true;
           setIsInitialized(true);
         }
-
       } catch (error) {
-        
         if (mountedRef.current) {
-          const errorMessage = error.message.includes('시간 초과') ?
-            '채팅방 연결 시간이 초과되었습니다.' :
-            error.message || '채팅방 연결에 실패했습니다.';
-            
+          const errorMessage = error.message.includes("시간 초과")
+            ? "채팅방 연결 시간이 초과되었습니다."
+            : error.message || "채팅방 연결에 실패했습니다.";
+
           setError(errorMessage);
           cleanup();
 
@@ -411,7 +437,7 @@ export const useRoomHandling = (
           setLoading(false);
           initializingRef.current = false;
         }
-        
+
         clearAllTimeouts();
         setupPromiseRef.current = null;
       }
@@ -434,7 +460,7 @@ export const useRoomHandling = (
     setIsInitialized,
     initializingRef,
     setupCompleteRef,
-    clearAllTimeouts
+    clearAllTimeouts,
   ]);
 
   useEffect(() => {
@@ -460,10 +486,10 @@ export const useRoomHandling = (
       }
     };
 
-    window.addEventListener('online', handleOnline);
-    
+    window.addEventListener("online", handleOnline);
+
     return () => {
-      window.removeEventListener('online', handleOnline);
+      window.removeEventListener("online", handleOnline);
     };
   }, [setupRoom]);
 
@@ -472,7 +498,7 @@ export const useRoomHandling = (
     joinRoom,
     loadInitialMessages,
     fetchRoomData,
-    handleSessionError
+    handleSessionError,
   };
 };
 
