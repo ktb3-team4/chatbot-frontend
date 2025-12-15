@@ -78,7 +78,7 @@ export const useMessageHandling = (
 
   const handleMessageSubmit = useCallback(
     async (messageData) => {
-      if (!socketRef.current?.connected || !currentUser) {
+      if (!socketRef.current || !currentUser) {
         Toast.error("채팅 서버와 연결이 끊어졌습니다.");
         return false; // [수정] 실패 반환
       }

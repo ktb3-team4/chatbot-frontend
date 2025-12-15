@@ -16,7 +16,7 @@ export const useFileHandling = (
 
   const handleFileUpload = useCallback(
     async (file, content = "") => {
-      if (!socketRef.current?.connected || !currentUser) {
+      if (!socketRef.current || !currentUser) {
         Toast.error("채팅 서버와 연결이 끊어졌습니다.");
         return;
       }
@@ -53,7 +53,7 @@ export const useFileHandling = (
             originalname: uploadResponse.data.originalname,
             mimetype: uploadResponse.data.mimetype,
             size: uploadResponse.data.size,
-            url: uploadResponse.data.url, 
+            url: uploadResponse.data.url,
           },
         });
 

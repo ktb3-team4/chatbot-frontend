@@ -165,7 +165,7 @@ export const useChatRoom = () => {
   // 로컬 캐시 복원: 새로고침 시 이전 메시지/방 정보 즉시 표시
   useEffect(() => {
     if (typeof window === "undefined") return;
-    processedMessageIds.current.clear();
+    // NOTE: processedMessageIds.current.clear()는 cleanup에서 처리
 
     if (!chatCacheKey) {
       setCacheHydrated(false);
@@ -176,12 +176,15 @@ export const useChatRoom = () => {
       const cached = localStorage.getItem(chatCacheKey);
       if (!cached) {
         setCacheHydrated(false);
+        initialLoadCompletedRef.current = false; // 캐시 없음
         return;
       }
 
       const parsed = JSON.parse(cached);
       if (parsed?.room) setRoom(parsed.room);
-      if (Array.isArray(parsed?.messages)) {
+
+      // [수정]: 메시지가 비어있지 않은 경우에만 복원하고 플래그 설정
+      if (Array.isArray(parsed?.messages) && parsed.messages.length > 0) {
         setMessages(parsed.messages);
         setHasMoreMessages(
           typeof parsed.hasMoreMessages === "boolean"
@@ -190,16 +193,22 @@ export const useChatRoom = () => {
         );
 
         // 중복 메시지 방지를 위해 캐시된 메시지 ID를 기록
-        processedMessageIds.current.clear();
+        // processedMessageIds.current.clear()는 제거. (재설정 방지)
         parsed.messages.forEach((msg) => {
           if (msg?._id) processedMessageIds.current.add(msg._id);
         });
+
+        // 캐시 복원 성공 시, 초기 로딩이 완료된 것으로 간주
+        initialLoadCompletedRef.current = true;
+      } else {
+        initialLoadCompletedRef.current = false; // 메시지가 없으면 초기 로딩 필요
       }
 
       setCacheHydrated(true);
     } catch (error) {
       console.warn("Failed to hydrate chat cache:", error);
       setCacheHydrated(false);
+      initialLoadCompletedRef.current = false; // 캐시 복원 실패 시 초기 로딩 필요
     }
   }, [chatCacheKey, setRoom, setMessages, setHasMoreMessages]);
 
@@ -234,12 +243,17 @@ export const useChatRoom = () => {
           return true;
         });
 
-        const merged = isInitialLoad ? newMessages : [...prev, ...newMessages];
+        // isInitialLoad가 true이면 덮어쓰기 (빈 화면에서 최초 로드)
+        // isInitialLoad가 false이면 병합 (캐시 복원 후 서버 메시지 로드 또는 무한 스크롤)
+        const merged = isInitialLoad ? newMessages : [...newMessages, ...prev]; // 서버 메시지가 위에 오도록 순서 변경
+
         const messageMap = new Map();
         for (const msg of merged) {
+          // 중복 메시지 발생 시 Map이 자동으로 최신 메시지를 유지하도록 처리
           if (msg?._id) messageMap.set(msg._id, msg);
         }
 
+        // Map의 값을 배열로 변환 후 타임스탬프 순으로 정렬 (오름차순)
         return Array.from(messageMap.values()).sort((a, b) => {
           const timeA = new Date(a.timestamp || 0).getTime();
           const timeB = new Date(b.timestamp || 0).getTime();
@@ -254,7 +268,7 @@ export const useChatRoom = () => {
     [setMessages, setHasMoreMessages]
   );
 
-  // [중요 수정] setupEventListeners: 소켓 에러 처리 로직 개선
+  // [수정] setupEventListeners: 소켓 에러 처리 로직 개선
   const setupEventListeners = useCallback(() => {
     if (!socketRef.current || !mountedRef.current) return;
 
@@ -313,7 +327,10 @@ export const useChatRoom = () => {
         if (!response || typeof response !== "object")
           throw new Error("Invalid response format");
         const { messages: loadedMessages = [], hasMore } = response;
-        const isInitialLoad = messages.length === 0;
+
+        // [수정]: 초기 로드 완료 여부 플래그로 판단
+        const isInitialLoad = !initialLoadCompletedRef.current;
+
         // hasMore가 명시되지 않은 경우 페이지 크기 미만이면 더 로드할 것이 없다고 판단
         const nextHasMore =
           typeof hasMore === "boolean"

@@ -281,7 +281,6 @@ export const AuthProvider = ({ children }) => {
         const updatedUser = {
           ...user,
           token: data.token,
-          sessionId: data.sessionId,
           lastActivity: Date.now(),
         };
         saveUser(updatedUser);

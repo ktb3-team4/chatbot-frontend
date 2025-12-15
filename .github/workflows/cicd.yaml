@@ -64,7 +64,7 @@ jobs:
   deploy:
     needs: [build-and-push, discover-servers]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    # if: github.event_name == 'push'
     strategy:
       matrix: ${{ fromJson(needs.discover-servers.outputs.matrix) }}
       fail-fast: false  # 한 서버 실패해도 다른 서버 계속 배포

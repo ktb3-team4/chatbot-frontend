@@ -59,6 +59,16 @@ const ChatMessages = ({
     100 // 하단 100px 이내면 자동 스크롤
   );
 
+  // 채팅방 진입 시 최신 메시지 위치로 이동
+  useEffect(() => {
+    if (!room) return;
+
+    initialScrollDoneRef.current = false;
+    const rafId = requestAnimationFrame(() => scrollToBottom("auto"));
+
+    return () => cancelAnimationFrame(rafId);
+  }, [room?._id, scrollToBottom]);
+
   // 무한 스크롤 훅 - 스크롤 컨테이너를 root로 지정하여 상단 sentinel 관찰
   const { sentinelRef } = useInfiniteScroll(
     onLoadMore,
