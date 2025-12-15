@@ -97,7 +97,7 @@ class FileService {
       const cloudFrontUrl = `https://${CLOUDFRONT_DOMAIN}/${key}`;
 
       try {
-        await axiosInstance.post("/api/files/uploads", {
+        await axiosInstance.post("/api/files/upload", {
           filename: key,
           url: cloudFrontUrl,
           mimetype: file.type,
