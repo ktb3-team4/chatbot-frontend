@@ -351,18 +351,34 @@ export const useChatRoom = () => {
       if (!mountedRef.current) return;
       console.error("Socket error:", error);
 
+      const code = error?.code;
+      const message = error?.message;
+
       // 메시지 전송 관련 에러는 Toast로만 표시하고 화면을 덮지 않음
       if (
-        ["MESSAGE_REJECTED", "MESSAGE_ERROR", "FILE_UPLOAD_ERROR"].includes(
-          error?.code
-        )
+        [
+          "MESSAGE_REJECTED",
+          "MESSAGE_ERROR",
+          "FILE_UPLOAD_ERROR",
+          "MESSAGE_TOO_LONG",
+          "SERVER_BUSY",
+          "LOAD_ERROR",
+        ].includes(code)
       ) {
-        Toast.error(error.message || "메시지 전송 중 오류가 발생했습니다.");
+        Toast.error(message || "메시지 처리 중 오류가 발생했습니다.");
+        return;
+      }
+
+      // 인증/세션 오류는 로그아웃 유도
+      if (["UNAUTHORIZED", "SESSION_EXPIRED"].includes(code)) {
+        setError(message || "세션이 만료되었습니다. 다시 로그인해주세요.");
+        logout();
+        router.replace("/?error=session_expired");
         return;
       }
 
       // 그 외의 연결 관련 치명적 에러만 상태 업데이트
-      setError(error.message || "채팅 연결에 문제가 발생했습니다.");
+      setError(message || "채팅 연결에 문제가 발생했습니다.");
     });
   }, [
     processMessages,
