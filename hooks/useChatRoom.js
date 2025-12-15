@@ -48,6 +48,7 @@ export const useChatRoom = () => {
   const initialLoadCompletedRef = useRef(false);
   const processedMessageIds = useRef(new Set());
   const loadMoreTimeoutRef = useRef(null);
+  const isReconnectingRef = useRef(false);
   const chatCacheKey = useMemo(() => {
     return router.query.room ? `chat-room-cache:${router.query.room}` : null;
   }, [router.query.room]);
@@ -415,7 +416,8 @@ export const useChatRoom = () => {
     initializingRef,
     setupCompleteRef,
     userRooms.current,
-    processMessages
+    processMessages,
+    isReconnectingRef
   );
 
   useEffect(() => {
@@ -434,12 +436,18 @@ export const useChatRoom = () => {
         setupRoom().catch(() => setError("채팅방 연결에 실패했습니다."));
       }
     };
-    const handleDisconnect = () => {
-      if (mountedRef.current) {
+    const handleDisconnect = (reason) => {
+      if (!mountedRef.current) return;
+
+      // 재연결 중이거나 의도적인 disconnect는 경고 표시 안 함
+      if (isReconnectingRef.current || reason === 'io client disconnect') {
+        setConnectionStatus("connecting");
+      } else {
         setConnectionStatus("disconnected");
-        socketInitializedRef.current = false;
-        setupCompleteRef.current = false;
       }
+
+      socketInitializedRef.current = false;
+      setupCompleteRef.current = false;
     };
     const handleError = () => {
       if (mountedRef.current) {

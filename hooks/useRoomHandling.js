@@ -21,7 +21,8 @@ export const useRoomHandling = (
   initializingRef,
   setupCompleteRef,
   userRooms,
-  processMessages
+  processMessages,
+  isReconnectingRef
 ) => {
   const { user, refreshToken, logout } = useAuth();
   const setupPromiseRef = useRef(null);
@@ -83,6 +84,11 @@ export const useRoomHandling = (
       if (socketRef.current) {
         const currentSocket = socketRef.current;
 
+        // 재연결 중임을 표시
+        if (isReconnectingRef) {
+          isReconnectingRef.current = true;
+        }
+
         if (userRooms?.get(currentSocket.id)) {
           await new Promise((resolve) => {
             currentSocket.emit('leaveRoom', userRooms.get(currentSocket.id));
@@ -91,10 +97,8 @@ export const useRoomHandling = (
           userRooms.delete(currentSocket.id);
         }
 
-        // disconnect 이벤트가 발생하기 전에 모든 리스너를 제거하여
-        // UI에 불필요한 "연결 끊김" 경고가 표시되지 않도록 함
-        currentSocket.removeAllListeners();
         currentSocket.disconnect();
+        currentSocket.removeAllListeners();
         socketRef.current = null;
 
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -111,8 +115,8 @@ export const useRoomHandling = (
         reconnectionDelay: 1000,
         reconnectionDelayMax: 3000,
         timeout: 10000,
-        pingTimeout: 10000,
-        pingInterval: 8000,
+        pingTimeout: 60000,  // 백엔드와 일치 (60초)
+        pingInterval: 25000, // 백엔드와 일치 (25초)
         forceNew: true,
         autoConnect: true
       });
@@ -133,6 +137,12 @@ export const useRoomHandling = (
             socket.removeListener('connect_error', handleError);
             socket.removeListener('error', handleError);
             socketReconnectAttempts.current = 0;
+
+            // 재연결 완료
+            if (isReconnectingRef) {
+              isReconnectingRef.current = false;
+            }
+
             resolve(socket);
           }
         };

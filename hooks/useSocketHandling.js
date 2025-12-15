@@ -102,7 +102,9 @@ export const useSocketHandling = (router, maxRetries = 5) => { // 최대 재시�
         reconnectionAttempts: maxRetries,
         reconnectionDelay: getRetryDelay(0),
         reconnectionDelayMax: 10000,
-        timeout: 20000
+        timeout: 20000,
+        pingTimeout: 60000,  // 백엔드와 일치 (60초)
+        pingInterval: 25000  // 백엔드와 일치 (25초)
       });
 
       socketRef.current = socket;

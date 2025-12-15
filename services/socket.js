@@ -46,6 +46,8 @@ class SocketService {
           reconnectionDelay: this.retryDelay,
           reconnectionDelayMax: 5000,
           timeout: 20000,
+          pingTimeout: 60000,  // 백엔드와 일치 (60초)
+          pingInterval: 25000, // 백엔드와 일치 (25초)
           forceNew: true
         });
 
