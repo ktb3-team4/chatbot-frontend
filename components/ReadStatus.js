@@ -11,6 +11,7 @@ const ReadStatus = ({
   messageId = null,
   messageRef = null,
   currentUserId = null,
+  roomId = null,
 }) => {
   const [hasMarkedAsRead, setHasMarkedAsRead] = useState(false);
 
@@ -37,6 +38,7 @@ const ReadStatus = ({
     if (
       !messageId ||
       !currentUserId ||
+      !roomId ||
       hasMarkedAsRead ||
       messageType === "system" ||
       !socketRef?.current
@@ -47,12 +49,13 @@ const ReadStatus = ({
     try {
       socketRef.current.emit("markMessagesAsRead", {
         messageIds: [messageId],
+        roomId,
       });
       setHasMarkedAsRead(true);
     } catch (error) {
       console.error("Error marking message as read:", error);
     }
-  }, [messageId, currentUserId, hasMarkedAsRead, messageType, socketRef]);
+  }, [messageId, currentUserId, hasMarkedAsRead, messageType, roomId, socketRef]);
 
   // [핵심 수정] 무거운 IntersectionObserver 대신 useEffect로 즉시 처리
   useEffect(() => {
